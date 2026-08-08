@@ -6,6 +6,8 @@
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="assets/css/tokens.css">
 <link rel="stylesheet" href="assets/css/main.css">
+<link rel="stylesheet" href="assets/css/admin-builder.css">
+
 </head>
 <body>
 <div class="admin-shell">
@@ -31,6 +33,7 @@
         <a href="#" data-view="pagebuilder">Page Builder</a>
         <a href="#" data-view="themes">Themes</a>
         <a href="#" data-view="email">Email Center</a>
+        <a href="#" data-view="accounts">Accounts &amp; Roles</a>
       </div>
       <div class="admin-nav-group" id="developerNavGroup" style="display:none;">
         <h5>Developer</h5>
@@ -57,9 +60,16 @@
     <section id="edc-email" class="panel admin-module" hidden>
       <p class="edc-muted">Loading email…</p>
     </section>
+
+    <section id="edc-accounts" class="panel admin-module" hidden>
+  <p class="edc-muted">Loading accounts…</p>
+</section>
   </main>
 </div>
 
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/api-extras.js"></script>
 <script src="assets/js/config.js"></script>
 <script src="assets/js/demo-data.js"></script>
 <script src="assets/js/api.js"></script>
@@ -232,11 +242,19 @@ async function viewDeveloper() {
 function viewPageBuilder() { showAdminModule("edc-pagebuilder"); }
 function viewThemes() { showAdminModule("edc-themes"); }
 function viewEmail() { showAdminModule("edc-email"); }
+function viewAccounts() { showAdminModule("edc-accounts"); }
 
 const VIEWS = {
-  dashboard: viewDashboard, applicants: viewApplicants, jobs: viewJobs, settings: viewSettings,
-  comments: viewComments, developer: viewDeveloper, pagebuilder: viewPageBuilder,
-  themes: viewThemes, email: viewEmail,
+  dashboard: viewDashboard,
+  applicants: viewApplicants,
+  jobs: viewJobs,
+  settings: viewSettings,
+  comments: viewComments,
+  developer: viewDeveloper,
+  pagebuilder: viewPageBuilder,
+  themes: viewThemes,
+  email: viewEmail,
+  accounts: viewAccounts,
 };
 
 function bindNav() {
@@ -268,11 +286,13 @@ function bindNav() {
 <script src="assets/js/pagebuilder.js"></script>
 <script src="assets/js/email.js"></script>
 <script src="assets/js/themes-admin.js"></script>
+<script src="assets/js/users-admin.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     EDC_PAGEBUILDER.init('#edc-pagebuilder');
     EDC_EMAIL.init('#edc-email');
     EDC_THEMES_ADMIN.init('#edc-themes');
+    EDC_USERS_ADMIN.init('#edc-accounts');
   });
 </script>
 </body>
