@@ -59,13 +59,16 @@
     <section id="edc-email" class="panel admin-module" hidden>
       <p class="edc-muted">Loading email…</p>
     </section>
-    <section id="view-accounts" class="view" hidden></section>
+    <section id="edc-accounts" class="panel admin-module" hidden>
+      <p class="edc-muted">Loading accounts…</p>
+    </section>
   </main>
 </div>
 
 <script src="assets/js/config.js"></script>
 <script src="assets/js/demo-data.js"></script>
 <script src="assets/js/api.js"></script>
+<script src="assets/js/api-extras.js"></script>
 <script src="assets/js/ui.js"></script>
 <script>
 const esc = EDC_UI.escapeHtml;
@@ -235,11 +238,12 @@ async function viewDeveloper() {
 function viewPageBuilder() { showAdminModule("edc-pagebuilder"); }
 function viewThemes() { showAdminModule("edc-themes"); }
 function viewEmail() { showAdminModule("edc-email"); }
+function viewAccounts() { showAdminModule("edc-accounts"); }
 
 const VIEWS = {
   dashboard: viewDashboard, applicants: viewApplicants, jobs: viewJobs, settings: viewSettings,
   comments: viewComments, developer: viewDeveloper, pagebuilder: viewPageBuilder,
-  themes: viewThemes, email: viewEmail,
+  themes: viewThemes, email: viewEmail, accounts: viewAccounts,
 };
 
 function bindNav() {
@@ -271,12 +275,13 @@ function bindNav() {
 <script src="assets/js/pagebuilder.js"></script>
 <script src="assets/js/email.js"></script>
 <script src="assets/js/themes-admin.js"></script>
+<script src="assets/js/users-admin.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     EDC_PAGEBUILDER.init('#edc-pagebuilder');
     EDC_EMAIL.init('#edc-email');
     EDC_THEMES_ADMIN.init('#edc-themes');
-    EDC_PAGEBUILDER.init("#edc-pagebuilder");
+    EDC_USERS_ADMIN.init('#edc-accounts');
   });
 </script>
 </body>
