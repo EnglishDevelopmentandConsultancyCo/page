@@ -213,12 +213,54 @@ const EDC_API = (() => {
     return callBackend("updateApplicant", { id, status }, "POST");
   }
 
+    // ---------------- THEME ----------------
+  async function getActiveTheme() {
+    if (cfg.DEMO_MODE) { await delay(); return ok({ preset: "default", label: "Default", variables: {}, scheduled: false }); }
+    return callBackend("getActiveTheme");
+  }
+  async function getThemePresets() { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getThemePresets"); }
+  async function saveThemePreset(p) { if (cfg.DEMO_MODE) { await delay(); return ok({ preset_id: p.preset_id || "THM-demo" }, "Saved (demo)."); } return callBackend("saveThemePreset", p, "POST"); }
+  async function deleteThemePreset(preset_id) { if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }, "Deleted (demo)."); } return callBackend("deleteThemePreset", { preset_id }, "POST"); }
+  async function getThemeSchedules() { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getThemeSchedules"); }
+  async function saveThemeSchedule(s) { if (cfg.DEMO_MODE) { await delay(); return ok({ schedule_id: s.schedule_id || "SCH-demo" }, "Saved (demo)."); } return callBackend("saveThemeSchedule", s, "POST"); }
+  async function deleteThemeSchedule(schedule_id) { if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }, "Deleted (demo)."); } return callBackend("deleteThemeSchedule", { schedule_id }, "POST"); }
+
+  // ---------------- POPUPS ----------------
+  async function getActivePopups(params = {}) { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getActivePopups", params); }
+  async function getPopupCampaigns() { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getPopupCampaigns"); }
+  async function savePopupCampaign(c) { if (cfg.DEMO_MODE) { await delay(); return ok({ campaign_id: c.campaign_id || "POP-demo" }, "Saved (demo)."); } return callBackend("savePopupCampaign", c, "POST"); }
+  async function deletePopupCampaign(campaign_id) { if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }, "Deleted (demo)."); } return callBackend("deletePopupCampaign", { campaign_id }, "POST"); }
+
+  // ---------------- PAGE BUILDER ----------------
+  async function getPages() { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getPages"); }
+  async function getSections(page_id) { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getSections", { page_id }); }
+  async function getPublicPage(slug) { if (cfg.DEMO_MODE) { await delay(); return ok({ page: { slug }, sections: [] }); } return callBackend("getPublicPage", { slug }); }
+  async function savePage(p) { if (cfg.DEMO_MODE) { await delay(); return ok({ page_id: p.page_id || "PAG-demo" }, "Saved (demo)."); } return callBackend("savePage", p, "POST"); }
+  async function deletePage(page_id) { if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }, "Deleted (demo)."); } return callBackend("deletePage", { page_id }, "POST"); }
+  async function createSection(s) { if (cfg.DEMO_MODE) { await delay(); return ok({ section_id: "SEC-demo", order: 1 }, "Added (demo)."); } return callBackend("createSection", s, "POST"); }
+  async function updateSection(s) { if (cfg.DEMO_MODE) { await delay(); return ok({ section_id: s.section_id }, "Updated (demo)."); } return callBackend("updateSection", s, "POST"); }
+  async function deleteSection(section_id) { if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }, "Deleted (demo)."); } return callBackend("deleteSection", { section_id }, "POST"); }
+  async function reorderSections(page_id, orderedIds) { if (cfg.DEMO_MODE) { await delay(); return ok({ reordered: true }, "Reordered (demo)."); } return callBackend("reorderSections", { page_id, orderedIds }, "POST"); }
+
+  // ---------------- VERSIONING ----------------
+  async function getContentVersions(params = {}) { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getContentVersions", params); }
+  async function restoreContentVersion(version_id) { if (cfg.DEMO_MODE) { await delay(); return ok({ restored: true }, "Restored (demo)."); } return callBackend("restoreContentVersion", { version_id }, "POST"); }
+
+  // ---------------- EMAIL ----------------
+  async function sendEmail(p) { if (cfg.DEMO_MODE) { await delay(400); return ok({ sent: true }, "Sent (demo — not really)."); } return callBackend("sendEmail", p, "POST"); }
+  async function sendBulkEmail(p) { if (cfg.DEMO_MODE) { await delay(600); return ok({ sent: p.recipients.length, failed: 0 }, "Sent (demo — not really)."); } return callBackend("sendBulkEmail", p, "POST"); }
+  async function testEmail() { if (cfg.DEMO_MODE) { await delay(400); return ok({ sent: true }, "Test sent (demo)."); } return callBackend("testEmail", {}, "POST"); }
+
   return {
     getSiteSettings, getNavigation, getServices, getTestimonials, getGallery, getFaqs,
     getTeachers, getTeacher, getJobs, getJob,
     createApplication, saveApplicationDraft, getApplicationDraft,
     getComments, createComment,
     login, logout, getSession,
-    getDashboardStats, getApplicants, updateApplicantStatus,
+    getDashboardStats, getApplicants, updateApplicantStatus, getActiveTheme, getThemePresets, saveThemePreset, deleteThemePreset, getThemeSchedules, saveThemeSchedule, deleteThemeSchedule,
+    getActivePopups, getPopupCampaigns, savePopupCampaign, deletePopupCampaign,
+    getPages, getSections, getPublicPage, savePage, deletePage, createSection, updateSection, deleteSection, reorderSections,
+    getContentVersions, restoreContentVersion,
+    sendEmail, sendBulkEmail, testEmail,
   };
 })();

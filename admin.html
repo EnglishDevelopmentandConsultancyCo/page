@@ -47,6 +47,18 @@
   </main>
 </div>
 
+<section id="edc-pagebuilder">
+      <p class="edc-muted">Loading page builder…</p>
+    </section>
+
+    <section id="edc-themes">
+      <p class="edc-muted">Loading themes…</p>
+    </section>
+
+    <section id="edc-email">
+      <p class="edc-muted">Loading email…</p>
+    </section>
+
 <script src="assets/js/config.js"></script>
 <script src="assets/js/demo-data.js"></script>
 <script src="assets/js/api.js"></script>
@@ -220,5 +232,20 @@ function bindNav() {
   viewDashboard();
 })();
 </script>
+
+<script src="assets/js/theme.js"></script>
+<script src="assets/js/popups.js"></script>
+<script src="assets/js/pagebuilder.js"></script>
+<script src="assets/js/email.js"></script>
+<script src="assets/js/themes-admin.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    EDC_PAGEBUILDER.init('#edc-pagebuilder');
+    EDC_EMAIL.init('#edc-email');
+    EDC_THEMES_ADMIN.init('#edc-themes');
+  });
+</script>
+
+
 </body>
 </html>
