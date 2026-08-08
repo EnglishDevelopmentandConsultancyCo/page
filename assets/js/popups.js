@@ -82,3 +82,6 @@ const EDC_POPUPS = (() => {
   return { init, pageSlug };
 })();
 document.addEventListener("DOMContentLoaded", EDC_POPUPS.init);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) EDC_POPUPS.init();
+});

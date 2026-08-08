@@ -31,7 +31,12 @@ const EDC_THEMES_ADMIN = (() => {
         <div><button class="edc-btn edc-btn-sm" data-edit>Edit</button>
         <button class="edc-btn edc-btn-sm edc-btn-danger" data-del>Delete</button></div>`;
       row.querySelector("[data-edit]").onclick = () => editPreset(p);
-      row.querySelector("[data-del]").onclick = async () => { if (!confirm("Delete preset?")) return; await EDC_API.deleteThemePreset(p.preset_id); refresh(); };
+       row.querySelector("[data-del]").onclick = async () => {
+         if (!confirm("Delete preset?")) return;
+         const result = await EDC_API.deleteThemePreset(p.preset_id);
+         EDC_UI.toast(result.message || result.error?.message || "Unable to delete preset.", result.success ? "success" : "error");
+         if (result.success) refresh();
+       };
       box.appendChild(row);
     });
   }
@@ -45,7 +50,12 @@ const EDC_THEMES_ADMIN = (() => {
         <div><button class="edc-btn edc-btn-sm" data-edit>Edit</button>
         <button class="edc-btn edc-btn-sm edc-btn-danger" data-del>Delete</button></div>`;
       row.querySelector("[data-edit]").onclick = () => editSchedule(s, presets);
-      row.querySelector("[data-del]").onclick = async () => { if (!confirm("Delete schedule?")) return; await EDC_API.deleteThemeSchedule(s.schedule_id); refresh(); };
+       row.querySelector("[data-del]").onclick = async () => {
+         if (!confirm("Delete schedule?")) return;
+         const result = await EDC_API.deleteThemeSchedule(s.schedule_id);
+         EDC_UI.toast(result.message || result.error?.message || "Unable to delete schedule.", result.success ? "success" : "error");
+         if (result.success) refresh();
+       };
       box.appendChild(row);
     });
   }
@@ -55,7 +65,8 @@ const EDC_THEMES_ADMIN = (() => {
     let vars = prompt('CSS variables as JSON, e.g. {"--primary":"#0e7c7b"}', p ? p.variables_json : "{}"); if (vars === null) return;
     let vj; try { vj = JSON.stringify(JSON.parse(vars)); } catch (e) { return alert("Invalid JSON."); }
     const r = await EDC_API.saveThemePreset({ preset_id: p ? p.preset_id : null, name, label, variables_json: vj });
-    if (r.success) refresh(); else alert(r.error?.message || "Failed.");
+    EDC_UI.toast(r.message || r.error?.message || "Unable to save preset.", r.success ? "success" : "error");
+    if (r.success) refresh();
   }
   async function editSchedule(s, presets) {
     const name = prompt("Schedule name:", s ? s.name : ""); if (name === null) return;
@@ -65,7 +76,8 @@ const EDC_THEMES_ADMIN = (() => {
     const end = prompt("End date (MM-DD):", s ? s.end_date : "01-31"); if (end === null) return;
     const enabled = confirm("Enable this schedule?") ? "true" : "false";
     const r = await EDC_API.saveThemeSchedule({ schedule_id: s ? s.schedule_id : null, name, preset_id: preset.preset_id, start_date: start, end_date: end, priority: s ? s.priority : 5, enabled });
-    if (r.success) refresh(); else alert(r.error?.message || "Failed.");
+    EDC_UI.toast(r.message || r.error?.message || "Unable to save schedule.", r.success ? "success" : "error");
+    if (r.success) refresh();
   }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[m])); }
   return { init };

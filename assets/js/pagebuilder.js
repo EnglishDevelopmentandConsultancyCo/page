@@ -76,31 +76,38 @@ const EDC_PAGEBUILDER = (() => {
     if (!state.activePageId) return alert("Select a page first.");
     const type = prompt("Section type (text, hero, image, grid, cta):", "text"); if (!type) return;
     const r = await EDC_API.createSection({ page_id: state.activePageId, type, content_json: {} });
-    if (r.success) await loadSections(state.activePageId); else alert(r.error?.message || "Failed.");
+    EDC_UI.toast(r.message || r.error?.message || "Unable to add section.", r.success ? "success" : "error");
+    if (r.success) await loadSections(state.activePageId);
   }
   async function editSection(s) {
     const raw = prompt("Edit content (JSON):", s.content_json || "{}"); if (raw === null) return;
     let json; try { json = JSON.parse(raw); } catch (e) { return alert("Invalid JSON."); }
-    const r = await EDC_API.updateSection({ section_id: s.section_id, content_json: json });
-    if (r.success) await loadSections(state.activePageId); else alert(r.error?.message || "Failed.");
+    const r = await EDC_API.updateSection({ page_id: state.activePageId, section_id: s.section_id, content_json: json });
+    EDC_UI.toast(r.message || r.error?.message || "Unable to save section.", r.success ? "success" : "error");
+    if (r.success) await loadSections(state.activePageId);
   }
   async function toggleVisible(s) {
-    const r = await EDC_API.updateSection({ section_id: s.section_id, visible: String(s.visible) === "false" });
+    const r = await EDC_API.updateSection({ page_id: state.activePageId, section_id: s.section_id, visible: String(s.visible) === "false" });
+    EDC_UI.toast(r.message || r.error?.message || "Unable to update section visibility.", r.success ? "success" : "error");
     if (r.success) await loadSections(state.activePageId);
   }
   async function deleteSection(s) {
     if (!confirm("Delete this section?")) return;
-    const r = await EDC_API.deleteSection(s.section_id); if (r.success) await loadSections(state.activePageId);
+    const r = await EDC_API.deleteSection(s.section_id, state.activePageId);
+    EDC_UI.toast(r.message || r.error?.message || "Unable to delete section.", r.success ? "success" : "error");
+    if (r.success) await loadSections(state.activePageId);
   }
   async function saveOrder() {
     const ids = Array.from(root.querySelectorAll(".edc-pb-section")).map(c => c.dataset.id);
     const r = await EDC_API.reorderSections(state.activePageId, ids);
-    if (r.success) { await loadSections(state.activePageId); alert("Order saved."); } else alert(r.error?.message || "Failed.");
+    EDC_UI.toast(r.message || r.error?.message || "Unable to save order.", r.success ? "success" : "error");
+    if (r.success) await loadSections(state.activePageId);
   }
   async function newPage() {
     const slug = prompt("Page slug (e.g. about):"); if (!slug) return;
     const r = await EDC_API.savePage({ slug, nav_label: slug, in_navigation: false, order: state.pages.length });
-    if (r.success) { await loadPages(); renderPageList(); } else alert(r.error?.message || "Failed.");
+    EDC_UI.toast(r.message || r.error?.message || "Unable to save page.", r.success ? "success" : "error");
+    if (r.success) { await loadPages(); renderPageList(); }
   }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[m])); }
   return { init };

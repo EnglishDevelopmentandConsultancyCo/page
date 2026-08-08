@@ -33,8 +33,8 @@ const EDC_API = (() => {
       });
       let res;
       if (method === "GET") {
-        const qs = new URLSearchParams({ action, ...requestParams }).toString();
-        res = await fetch(`${cfg.API_URL}?${qs}`, { method: "GET" });
+        const qs = new URLSearchParams({ action, ...requestParams, _ts: String(Date.now()) }).toString();
+        res = await fetch(`${cfg.API_URL}?${qs}`, { method: "GET", cache: "no-store" });
       } else {
         res = await fetch(cfg.API_URL, {
           method: "POST",
@@ -51,9 +51,17 @@ const EDC_API = (() => {
   }
 
   async function getSiteSettings() { if (cfg.DEMO_MODE) { await delay(); return ok(demo.siteSettings); } return callBackend("getSiteSettings"); }
+  async function verifySiteSettings(expected) {
+    const fresh = await callBackend("getSiteSettings");
+    if (!fresh.success) return fail("VERIFY_FAILED", `Saved, but the site settings could not be re-read: ${fresh.error?.message || "unknown error"}`);
+    const mismatches = Object.keys(expected).filter(key => String(fresh.data?.[key] ?? "") !== String(expected[key] ?? ""));
+    if (mismatches.length) return fail("VERIFY_FAILED", `The backend did not retain: ${mismatches.join(", ")}.`);
+    return ok(fresh.data, "Settings saved and verified on the live backend.");
+  }
   async function updateSiteSettings(payload) {
     if (cfg.DEMO_MODE) { await delay(); Object.assign(demo.siteSettings, payload); return ok(demo.siteSettings, "Settings saved (demo)."); }
-    return callBackend("updateSiteSettings", payload, "POST");
+    const saved = await callBackend("updateSiteSettings", payload, "POST");
+    return saved.success ? verifySiteSettings(payload) : saved;
   }
   async function getNavigation() { if (cfg.DEMO_MODE) { await delay(); return ok(demo.navigation); } return callBackend("getNavigation"); }
   async function getServices() { if (cfg.DEMO_MODE) { await delay(); return ok(demo.services); } return callBackend("getServices"); }
@@ -140,11 +148,51 @@ const EDC_API = (() => {
 
   async function getActiveTheme() { if (cfg.DEMO_MODE) { await delay(); return ok({ preset: "default", label: "Default", variables: {}, scheduled: false }); } return callBackend("getActiveTheme"); }
   async function getThemePresets() { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getThemePresets"); }
-  async function saveThemePreset(p) { if (cfg.DEMO_MODE) { await delay(); return ok({ preset_id: p.preset_id || "THM-demo" }, "Saved (demo)."); } return callBackend("saveThemePreset", p, "POST"); }
-  async function deleteThemePreset(preset_id) { if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }); } return callBackend("deleteThemePreset", { preset_id }, "POST"); }
+  async function saveThemePreset(p) {
+    if (cfg.DEMO_MODE) { await delay(); return ok({ preset_id: p.preset_id || "THM-demo" }, "Saved (demo)."); }
+    const saved = await callBackend("saveThemePreset", p, "POST");
+    if (!saved.success) return saved;
+    const fresh = await callBackend("getThemePresets");
+    const id = saved.data?.preset_id;
+    const row = (fresh.data || []).find(x => String(x.preset_id) === String(id));
+    if (!fresh.success || !row || row.name !== p.name || row.variables_json !== p.variables_json) {
+      return fail("VERIFY_FAILED", "The theme was saved, but the live preset could not be verified.");
+    }
+    return ok(row, "Theme preset saved and verified on the live backend.");
+  }
+  async function deleteThemePreset(preset_id) {
+    if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }); }
+    const saved = await callBackend("deleteThemePreset", { preset_id }, "POST");
+    if (!saved.success) return saved;
+    const fresh = await callBackend("getThemePresets");
+    if (!fresh.success || (fresh.data || []).some(x => String(x.preset_id) === String(preset_id))) {
+      return fail("VERIFY_FAILED", "The preset deletion could not be verified.");
+    }
+    return ok({ deleted: true }, "Theme preset deleted and verified.");
+  }
   async function getThemeSchedules() { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getThemeSchedules"); }
-  async function saveThemeSchedule(s) { if (cfg.DEMO_MODE) { await delay(); return ok({ schedule_id: s.schedule_id || "SCH-demo" }, "Saved (demo)."); } return callBackend("saveThemeSchedule", s, "POST"); }
-  async function deleteThemeSchedule(schedule_id) { if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }); } return callBackend("deleteThemeSchedule", { schedule_id }, "POST"); }
+  async function saveThemeSchedule(s) {
+    if (cfg.DEMO_MODE) { await delay(); return ok({ schedule_id: s.schedule_id || "SCH-demo" }, "Saved (demo)."); }
+    const saved = await callBackend("saveThemeSchedule", s, "POST");
+    if (!saved.success) return saved;
+    const fresh = await callBackend("getThemeSchedules");
+    const id = saved.data?.schedule_id;
+    const row = (fresh.data || []).find(x => String(x.schedule_id) === String(id));
+    if (!fresh.success || !row || String(row.preset_id) !== String(s.preset_id) || row.start_date !== s.start_date || row.end_date !== s.end_date || String(row.enabled) !== String(s.enabled === true || s.enabled === "true")) {
+      return fail("VERIFY_FAILED", "The theme schedule was saved, but the live schedule could not be verified.");
+    }
+    return ok(row, "Theme schedule saved and verified on the live backend.");
+  }
+  async function deleteThemeSchedule(schedule_id) {
+    if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }); }
+    const saved = await callBackend("deleteThemeSchedule", { schedule_id }, "POST");
+    if (!saved.success) return saved;
+    const fresh = await callBackend("getThemeSchedules");
+    if (!fresh.success || (fresh.data || []).some(x => String(x.schedule_id) === String(schedule_id))) {
+      return fail("VERIFY_FAILED", "The schedule deletion could not be verified.");
+    }
+    return ok({ deleted: true }, "Theme schedule deleted and verified.");
+  }
 
   async function getActivePopups(params = {}) { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getActivePopups", params); }
   async function getPopupCampaigns() { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getPopupCampaigns"); }
@@ -154,12 +202,71 @@ const EDC_API = (() => {
   async function getPages() { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getPages"); }
   async function getSections(page_id) { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getSections", { page_id }); }
   async function getPublicPage(slug) { if (cfg.DEMO_MODE) { await delay(); return ok({ page: { slug }, sections: [] }); } return callBackend("getPublicPage", { slug }); }
-  async function savePage(p) { if (cfg.DEMO_MODE) { await delay(); return ok({ page_id: p.page_id || "PAG-demo" }); } return callBackend("savePage", p, "POST"); }
-  async function deletePage(page_id) { if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }); } return callBackend("deletePage", { page_id }, "POST"); }
-  async function createSection(s) { if (cfg.DEMO_MODE) { await delay(); return ok({ section_id: "SEC-demo", order: 1 }); } return callBackend("createSection", s, "POST"); }
-  async function updateSection(s) { if (cfg.DEMO_MODE) { await delay(); return ok({ section_id: s.section_id }); } return callBackend("updateSection", s, "POST"); }
-  async function deleteSection(section_id) { if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }); } return callBackend("deleteSection", { section_id }, "POST"); }
-  async function reorderSections(page_id, orderedIds) { if (cfg.DEMO_MODE) { await delay(); return ok({ reordered: true }); } return callBackend("reorderSections", { page_id, orderedIds }, "POST"); }
+  async function savePage(p) {
+    if (cfg.DEMO_MODE) { await delay(); return ok({ page_id: p.page_id || "PAG-demo" }); }
+    const saved = await callBackend("savePage", p, "POST");
+    if (!saved.success) return saved;
+    const fresh = await callBackend("getPages");
+    const id = saved.data?.page_id;
+    const row = (fresh.data || []).find(x => String(x.page_id) === String(id));
+    if (!fresh.success || !row || row.slug !== p.slug || row.nav_label !== (p.nav_label || p.slug)) {
+      return fail("VERIFY_FAILED", "The page was saved, but the live page record could not be verified.");
+    }
+    return ok(row, "Page saved and verified on the live backend.");
+  }
+  async function deletePage(page_id) {
+    if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }); }
+    const saved = await callBackend("deletePage", { page_id }, "POST");
+    if (!saved.success) return saved;
+    const fresh = await callBackend("getPages");
+    if (!fresh.success || (fresh.data || []).some(x => String(x.page_id) === String(page_id))) {
+      return fail("VERIFY_FAILED", "The page deletion could not be verified.");
+    }
+    return ok({ deleted: true }, "Page deleted and verified.");
+  }
+  async function createSection(s) {
+    if (cfg.DEMO_MODE) { await delay(); return ok({ section_id: "SEC-demo", order: 1 }); }
+    const saved = await callBackend("createSection", s, "POST");
+    if (!saved.success) return saved;
+    const fresh = await callBackend("getSections", { page_id: s.page_id });
+    const row = (fresh.data || []).find(x => String(x.section_id) === String(saved.data?.section_id));
+    return fresh.success && row ? ok(row, "Section created and verified on the live backend.") : fail("VERIFY_FAILED", "The section was created, but could not be re-read from the live backend.");
+  }
+  async function updateSection(s) {
+    if (cfg.DEMO_MODE) { await delay(); return ok({ section_id: s.section_id }); }
+    const saved = await callBackend("updateSection", s, "POST");
+    if (!saved.success) return saved;
+    const page = await callBackend("getSections", { page_id: s.page_id });
+    const row = (page.data || []).find(x => String(x.section_id) === String(s.section_id));
+    const contentMatches = s.content_json === undefined || String(row?.content_json || "") === String(typeof s.content_json === "object" ? JSON.stringify(s.content_json) : s.content_json);
+    const visibleMatches = s.visible === undefined || String(row?.visible) === String(s.visible === true || s.visible === "true");
+    if (!page.success || !row || !contentMatches || !visibleMatches) {
+      return fail("VERIFY_FAILED", "The section was saved, but the live section could not be verified.");
+    }
+    return ok(row, "Section saved and verified on the live backend.");
+  }
+  async function deleteSection(section_id, page_id) {
+    if (cfg.DEMO_MODE) { await delay(); return ok({ deleted: true }); }
+    const saved = await callBackend("deleteSection", { section_id }, "POST");
+    if (!saved.success) return saved;
+    if (page_id) {
+      const fresh = await callBackend("getSections", { page_id });
+      if (!fresh.success || (fresh.data || []).some(x => String(x.section_id) === String(section_id))) {
+        return fail("VERIFY_FAILED", "The section deletion could not be verified.");
+      }
+    }
+    return ok({ deleted: true }, "Section deleted on the live backend.");
+  }
+  async function reorderSections(page_id, orderedIds) {
+    if (cfg.DEMO_MODE) { await delay(); return ok({ reordered: true }); }
+    const saved = await callBackend("reorderSections", { page_id, orderedIds }, "POST");
+    if (!saved.success) return saved;
+    const fresh = await callBackend("getSections", { page_id });
+    const actual = (fresh.data || []).map(x => x.section_id);
+    return fresh.success && orderedIds.every((id, i) => String(actual[i]) === String(id))
+      ? ok({ reordered: true }, "Section order saved and verified on the live backend.")
+      : fail("VERIFY_FAILED", "The section order was saved, but could not be verified.");
+  }
 
   async function getContentVersions(params = {}) { if (cfg.DEMO_MODE) { await delay(); return ok([]); } return callBackend("getContentVersions", params); }
   async function restoreContentVersion(version_id) { if (cfg.DEMO_MODE) { await delay(); return ok({ restored: true }); } return callBackend("restoreContentVersion", { version_id }, "POST"); }
