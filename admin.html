@@ -28,6 +28,9 @@
         <h5>Website</h5>
         <a href="#" data-view="settings">Site Settings</a>
         <a href="#" data-view="comments">Comments</a>
+        <a href="#" data-view="pagebuilder">Page Builder</a>
+        <a href="#" data-view="themes">Themes</a>
+        <a href="#" data-view="email">Email Center</a>
       </div>
       <div class="admin-nav-group" id="developerNavGroup" style="display:none;">
         <h5>Developer</h5>
@@ -44,20 +47,18 @@
       <span class="stamp stamp-gold" id="userStamp"></span>
     </div>
     <div id="viewContent"></div>
-  </main>
-</div>
 
-<section id="edc-pagebuilder">
+    <section id="edc-pagebuilder" class="panel admin-module" hidden>
       <p class="edc-muted">Loading page builder…</p>
     </section>
-
-    <section id="edc-themes">
+    <section id="edc-themes" class="panel admin-module" hidden>
       <p class="edc-muted">Loading themes…</p>
     </section>
-
-    <section id="edc-email">
+    <section id="edc-email" class="panel admin-module" hidden>
       <p class="edc-muted">Loading email…</p>
     </section>
+  </main>
+</div>
 
 <script src="assets/js/config.js"></script>
 <script src="assets/js/demo-data.js"></script>
@@ -67,13 +68,25 @@
 const esc = EDC_UI.escapeHtml;
 let session;
 
+function showViewContent() {
+  document.getElementById("viewContent").hidden = false;
+  document.querySelectorAll(".admin-module").forEach(el => { el.hidden = true; });
+}
+
+function showAdminModule(id) {
+  document.getElementById("viewContent").hidden = true;
+  document.querySelectorAll(".admin-module").forEach(el => { el.hidden = el.id !== id; });
+}
+
 async function viewDashboard() {
-  const stats = (await EDC_API.getDashboardStats()).data;
+  showViewContent();
+  const statsResult = await EDC_API.getDashboardStats();
+  const stats = statsResult.data || {};
   const cards = [
-    ["Total Applicants", stats.total_applicants], ["New Applications", stats.new_applications],
-    ["Under Review", stats.under_review], ["Shortlisted", stats.shortlisted],
-    ["Interviews", stats.interviews], ["Offers", stats.offers],
-    ["Hired", stats.hired], ["Rejected", stats.rejected],
+    ["Total Applicants", stats.total_applicants || 0], ["New Applications", stats.new_applications || 0],
+    ["Under Review", stats.under_review || 0], ["Shortlisted", stats.shortlisted || 0],
+    ["Interviews", stats.interviews || 0], ["Offers", stats.offers || 0],
+    ["Hired", stats.hired || 0], ["Rejected", stats.rejected || 0],
   ];
   document.getElementById("viewContent").innerHTML = `
     <div class="grid grid-4">
@@ -83,7 +96,7 @@ async function viewDashboard() {
       <div class="panel-head"><h3>Recent Applicants</h3><a href="#" data-view="applicants" class="btn btn-outline btn-sm">View all</a></div>
       <div id="recentApplicants"></div>
     </div>`;
-  const applicants = (await EDC_API.getApplicants()).data.slice(0, 5);
+  const applicants = ((await EDC_API.getApplicants()).data || []).slice(0, 5);
   document.getElementById("recentApplicants").innerHTML = applicantsTable(applicants, false);
   bindNav();
 }
@@ -94,11 +107,11 @@ function applicantsTable(list, withActions = true) {
     <th>ID</th><th>Name</th><th>Position</th><th>Campus</th><th>Applied</th><th>Experience</th><th>Status</th>${withActions?'<th>Assigned</th><th></th>':''}
   </tr></thead><tbody>
     ${list.map(a => `<tr>
-      <td><span class="stamp stamp-teal" style="padding:.15rem .5rem;">${a.id}</span></td>
+      <td><span class="stamp stamp-teal" style="padding:.15rem .5rem;">${esc(a.id)}</span></td>
       <td>${esc(a.name)}</td><td>${esc(a.position)}</td><td>${esc(a.campus)}</td><td>${esc(a.date)}</td><td>${esc(a.experience)}</td>
       <td><span class="badge ${EDC_UI.statusBadgeClass(a.status)}">${esc(a.status)}</span></td>
       ${withActions ? `<td>${esc(a.assigned)}</td><td>
-        <select class="input" style="width:auto;font-size:.75rem;padding:.35rem .5rem;" data-status-select="${a.id}">
+        <select class="input" style="width:auto;font-size:.75rem;padding:.35rem .5rem;" data-status-select="${esc(a.id)}">
           ${["Submitted","Under Review","Shortlisted","Interview Requested","Interview Scheduled","Offer Sent","Hired","Rejected","Withdrawn"].map(s=>`<option ${a.status===s?'selected':''}>${s}</option>`).join("")}
         </select></td>` : ''}
     </tr>`).join("")}
@@ -106,13 +119,14 @@ function applicantsTable(list, withActions = true) {
 }
 
 async function viewApplicants() {
+  showViewContent();
   document.getElementById("viewContent").innerHTML = `
     <div class="panel">
       <div class="flex gap-3 mb-4" style="flex-wrap:wrap;">
         <input class="input" style="max-width:260px;" id="searchInput" placeholder="Search name or ID…">
         <select class="input" style="max-width:220px;" id="statusFilter">
           <option value="">All statuses</option>
-          ${["Submitted","Under Review","Shortlisted","Interview Requested","Offer Sent","Hired","Rejected"].map(s=>`<option>${s}</option>`).join("")}
+          ${["Submitted","Under Review","Shortlisted","Interview Requested","Offer Sent","Hired","Rejected"].map(s => `<option>${s}</option>`).join("")}
         </select>
       </div>
       <div id="applicantsTableWrap" class="loading-state">Loading applicants…</div>
@@ -120,12 +134,14 @@ async function viewApplicants() {
   async function refresh() {
     const search = document.getElementById("searchInput").value;
     const status = document.getElementById("statusFilter").value;
-    const list = (await EDC_API.getApplicants({ search, status })).data;
+    const result = await EDC_API.getApplicants({ search, status });
+    const list = result.data || [];
     document.getElementById("applicantsTableWrap").innerHTML = applicantsTable(list);
     document.querySelectorAll("[data-status-select]").forEach(sel => {
       sel.addEventListener("change", async () => {
         const r = await EDC_API.updateApplicantStatus(sel.dataset.statusSelect, sel.value);
-        EDC_UI.toast(r.message, "success");
+        EDC_UI.toast(r.message || r.error?.message || "Unable to update status.", r.success ? "success" : "error");
+        if (r.success) refresh();
       });
     });
   }
@@ -135,22 +151,25 @@ async function viewApplicants() {
 }
 
 async function viewJobs() {
-  const jobs = (await EDC_API.getJobs({ status: "Published" })).data;
+  showViewContent();
+  const jobs = (await EDC_API.getJobs({ status: "Published" })).data || [];
   document.getElementById("viewContent").innerHTML = `
     <div class="panel">
-      <div class="panel-head"><h3>Job Openings</h3><button class="btn btn-primary btn-sm" disabled title="Demo mode">+ New Job Posting</button></div>
+      <div class="panel-head"><h3>Job Openings</h3><button class="btn btn-primary btn-sm" disabled title="Job creation is not part of this admin screen yet">+ New Job Posting</button></div>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Title</th><th>Type</th><th>Campus</th><th>Status</th></tr></thead><tbody>
-        ${jobs.map(j => `<tr><td>${j.id}</td><td>${esc(j.title)}</td><td>${esc(j.type)}</td><td>${esc(j.campus)}</td><td><span class="badge badge-shortlisted">${esc(j.status)}</span></td></tr>`).join("")}
+        ${jobs.map(j => `<tr><td>${esc(j.id || j.job_id)}</td><td>${esc(j.title)}</td><td>${esc(j.type || j.employment_type)}</td><td>${esc(j.campus)}</td><td><span class="badge badge-shortlisted">${esc(j.status)}</span></td></tr>`).join("")}
       </tbody></table></div>
     </div>`;
 }
 
 async function viewSettings() {
-  const s = (await EDC_API.getSiteSettings()).data;
+  showViewContent();
+  const result = await EDC_API.getSiteSettings();
+  const s = result.data || {};
   document.getElementById("viewContent").innerHTML = `
     <div class="panel" style="max-width:640px;">
       <h3 class="mb-4">Site Settings (CMS)</h3>
-      <div class="alert alert-info">Editing these fields updates the public website immediately — no code changes required (spec §129).</div>
+      <div class="alert alert-info">Editing these fields updates the public website immediately — no code changes required.</div>
       <div class="field"><label>Tagline</label><input class="input" id="s_tagline" value="${esc(s.tagline)}"></div>
       <div class="field"><label>Description</label><textarea class="input" id="s_description">${esc(s.description)}</textarea></div>
       <div class="field-row">
@@ -160,37 +179,40 @@ async function viewSettings() {
       <div class="field"><label>Address</label><input class="input" id="s_address" value="${esc(s.address)}"></div>
       <div class="field"><label>Theme</label>
         <select class="input" id="s_theme">
-          ${["default","mourning","summer","christmas","valentine"].map(t=>`<option value="${t}" ${s.theme===t?'selected':''}>${t}</option>`).join("")}
+          ${["default","mourning","summer","christmas","valentine"].map(t => `<option value="${t}" ${s.theme===t?'selected':''}>${t}</option>`).join("")}
         </select>
-        <div class="hint">Full theme scheduler / campaign manager is planned for a future release — see README roadmap.</div>
+        <div class="hint">Scheduled themes can be managed from the Themes section.</div>
       </div>
       <button class="btn btn-primary mt-4" id="saveSettingsBtn">Save Changes</button>
     </div>`;
-  document.getElementById("saveSettingsBtn").addEventListener("click", () => {
-    Object.assign(window.EDC_DEMO.siteSettings, {
+  document.getElementById("saveSettingsBtn").addEventListener("click", async () => {
+    const payload = {
       tagline: document.getElementById("s_tagline").value,
       description: document.getElementById("s_description").value,
       phone: document.getElementById("s_phone").value,
       email: document.getElementById("s_email").value,
       address: document.getElementById("s_address").value,
       theme: document.getElementById("s_theme").value,
-    });
-    EDC_UI.toast("Settings saved. Visit the public site to see the update.", "success");
+    };
+    const save = await EDC_API.updateSiteSettings(payload);
+    EDC_UI.toast(save.message || save.error?.message || "Unable to save settings.", save.success ? "success" : "error");
   });
 }
 
 async function viewComments() {
-  const comments = (await EDC_API.getComments()).data;
+  showViewContent();
+  const comments = (await EDC_API.getComments()).data || [];
   document.getElementById("viewContent").innerHTML = `
     <div class="panel">
       <h3 class="mb-4">Comments & Suggestions</h3>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>From</th><th>Page</th><th>Message</th><th>Date</th><th>Status</th></tr></thead><tbody>
-        ${comments.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.page)}</td><td>${esc(c.message)}</td><td>${esc(c.date)}</td><td><span class="badge badge-shortlisted">${esc(c.status)}</span></td></tr>`).join("")}
+        ${comments.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.page || c.page_type)}</td><td>${esc(c.message)}</td><td>${esc(c.date || c.timestamp)}</td><td><span class="badge badge-shortlisted">${esc(c.status)}</span></td></tr>`).join("")}
       </tbody></table></div>
     </div>`;
 }
 
 async function viewDeveloper() {
+  showViewContent();
   document.getElementById("viewContent").innerHTML = `
     <div class="grid grid-2">
       <div class="panel">
@@ -207,7 +229,15 @@ async function viewDeveloper() {
     </div>`;
 }
 
-const VIEWS = { dashboard: viewDashboard, applicants: viewApplicants, jobs: viewJobs, settings: viewSettings, comments: viewComments, developer: viewDeveloper };
+function viewPageBuilder() { showAdminModule("edc-pagebuilder"); }
+function viewThemes() { showAdminModule("edc-themes"); }
+function viewEmail() { showAdminModule("edc-email"); }
+
+const VIEWS = {
+  dashboard: viewDashboard, applicants: viewApplicants, jobs: viewJobs, settings: viewSettings,
+  comments: viewComments, developer: viewDeveloper, pagebuilder: viewPageBuilder,
+  themes: viewThemes, email: viewEmail,
+};
 
 function bindNav() {
   document.querySelectorAll("[data-view]").forEach(a => {
@@ -216,7 +246,7 @@ function bindNav() {
       document.querySelectorAll(".admin-nav-group a").forEach(x => x.classList.remove("active"));
       document.querySelectorAll(`[data-view="${a.dataset.view}"]`).forEach(x => x.classList.add("active"));
       document.getElementById("viewTitle").textContent = a.textContent;
-      VIEWS[a.dataset.view]();
+      if (VIEWS[a.dataset.view]) VIEWS[a.dataset.view]();
     };
   });
 }
@@ -245,7 +275,5 @@ function bindNav() {
     EDC_THEMES_ADMIN.init('#edc-themes');
   });
 </script>
-
-
 </body>
 </html>
