@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Services — EDC</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header id="site-header" class="site-header"></header>
+
+<section class="hero" style="padding:var(--sp-8) 0;">
+  <div class="container">
+    <span class="eyebrow">Services</span>
+    <h1 style="max-width:700px;">What EDC handles for schools and teachers.</h1>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container grid grid-2" id="servicesGrid"></div>
+</section>
+
+<section class="section section-alt">
+  <div class="container">
+    <div class="section-head center"><span class="eyebrow">FAQ</span><h2>Common questions.</h2></div>
+    <div style="max-width:700px;margin:0 auto;" id="faqList"></div>
+  </div>
+</section>
+
+<footer id="site-footer" class="site-footer"></footer>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/demo-data.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(async function () {
+  await EDC_UI.renderHeader();
+  await EDC_UI.renderFooter();
+  const services = (await EDC_API.getServices()).data || [];
+  document.getElementById("servicesGrid").innerHTML = services.map(s => `
+    <div class="card"><div class="card-body">
+      <div style="font-size:2rem;margin-bottom:.75rem;">${s.icon || "•"}</div>
+      <h3>${EDC_UI.escapeHtml(s.title)}</h3>
+      <p class="muted">${EDC_UI.escapeHtml(s.short)}</p>
+    </div></div>
+  `).join("");
+
+  const faqs = (await EDC_API.getFaqs()).data || [];
+  document.getElementById("faqList").innerHTML = faqs.map(f => `
+    <details class="accordion-item"><summary>${EDC_UI.escapeHtml(f.q)}</summary><p>${EDC_UI.escapeHtml(f.a)}</p></details>
+  `).join("");
+})();
+</script>
+</body>
+</html>

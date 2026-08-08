@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Careers — EDC</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header id="site-header" class="site-header"></header>
+
+<section class="hero" style="padding:var(--sp-8) 0;">
+  <div class="container">
+    <span class="eyebrow">Careers</span>
+    <h1 style="max-width:700px;">Current teaching openings across Thailand.</h1>
+    <p class="lead">Every listed role includes work-permit sponsorship guidance and a dedicated recruitment contact throughout the process.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="grid grid-3" id="jobsGrid"></div>
+  </div>
+</section>
+
+<footer id="site-footer" class="site-footer"></footer>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/demo-data.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(async function () {
+  await EDC_UI.renderHeader();
+  await EDC_UI.renderFooter();
+  const jobs = (await EDC_API.getJobs()).data || [];
+  document.getElementById("jobsGrid").innerHTML = jobs.map(j => `
+    <a href="job.html?id=${j.id}" class="card job-card">
+      <div class="card-body">
+        <span class="stamp ${j.type === 'Full-Time' ? 'stamp-open' : 'stamp-teal'}">${EDC_UI.escapeHtml(j.type)}</span>
+        <h3 class="mt-4">${EDC_UI.escapeHtml(j.title)}</h3>
+        <div class="meta">
+          <span>📍 ${EDC_UI.escapeHtml(j.campus)}</span>
+          <span>💰 ${EDC_UI.escapeHtml(j.salary)}</span>
+        </div>
+        <p class="muted" style="font-size:.88rem;">${EDC_UI.escapeHtml(j.description)}</p>
+      </div>
+    </a>
+  `).join("") || `<div class="empty-state"><h3>No open positions right now.</h3><p>Check back soon, or submit a general application.</p></div>`;
+})();
+</script>
+</body>
+</html>

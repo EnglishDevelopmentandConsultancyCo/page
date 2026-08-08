@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log In — EDC</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header id="site-header" class="site-header"></header>
+
+<section class="section" style="min-height:60vh;display:flex;align-items:center;">
+  <div class="container" style="max-width:420px;">
+    <div class="card"><div class="card-body">
+      <h2 class="mb-4">Portal Login</h2>
+      <div class="alert alert-info" id="demoNote"></div>
+      <form id="loginForm">
+        <div class="field"><label>Email</label><input class="input" id="email" type="email" required></div>
+        <div class="field"><label>Password</label><input class="input" id="password" type="password" required></div>
+        <button class="btn btn-primary btn-block" type="submit">Log In</button>
+      </form>
+    </div></div>
+  </div>
+</section>
+
+<footer id="site-footer" class="site-footer"></footer>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/demo-data.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(async function () {
+  await EDC_UI.renderHeader();
+  await EDC_UI.renderFooter();
+  if (window.EDC_CONFIG.DEMO_MODE) {
+    document.getElementById("demoNote").innerHTML = `Demo accounts (any password 4+ chars):<br>
+      <strong>admin@edc.demo</strong> · <strong>developer@edc.demo</strong> · <strong>teacher@edc.demo</strong>`;
+  } else {
+    document.getElementById("demoNote").style.display = "none";
+  }
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const r = await EDC_API.login(email, password);
+    if (!r.success) { EDC_UI.toast(r.error.message, "error"); return; }
+    if (r.data.role === "teacher") window.location.href = "teacher-portal.html";
+    else window.location.href = "admin.html";
+  });
+})();
+</script>
+</body>
+</html>

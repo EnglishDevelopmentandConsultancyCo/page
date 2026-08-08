@@ -1,0 +1,135 @@
+/* ============================================================
+   EDC DESIGN TOKENS
+   English Development Consultants — Visual Identity System
+   Palette: deep teal / forest green / near-black / cream / gold
+   Signature motif: the "stamp" — a nod to passports, visas and
+   verified-document culture that runs through this platform.
+   ============================================================ */
+
+:root {
+  /* --- Brand palette (default theme) --- */
+  --edc-deep-teal: #0b3d3d;
+  --edc-dark-teal: #082c2d;
+  --edc-forest: #123f36;
+  --edc-near-black: #071717;
+  --edc-cream: #f5f1e7;
+  --edc-white: #ffffff;
+  --edc-gold: #c9a85d;
+  --edc-gold-soft: #e2cfa0;
+
+  /* --- Semantic roles (theme-swappable via CMS) --- */
+  --color-bg: var(--edc-cream);
+  --color-surface: #ffffff;
+  --color-surface-alt: #eee8d9;
+  --color-header: var(--edc-near-black);
+  --color-footer: var(--edc-near-black);
+  --color-text: #1b2624;
+  --color-text-muted: #566462;
+  --color-heading: var(--edc-near-black);
+  --color-border: #d8d0bd;
+  --color-primary: var(--edc-deep-teal);
+  --color-primary-dark: var(--edc-dark-teal);
+  --color-accent: var(--edc-gold);
+  --color-accent-soft: var(--edc-gold-soft);
+  --color-link: var(--edc-deep-teal);
+  --color-success: #2f6f4e;
+  --color-warning: #a5710f;
+  --color-error: #a53d2e;
+  --color-button-text: #ffffff;
+
+  /* --- Typography --- */
+  --font-display: "Fraunces", "Georgia", serif;
+  --font-body: "Inter", -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
+
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-md: 1.125rem;
+  --fs-lg: 1.375rem;
+  --fs-xl: 1.85rem;
+  --fs-2xl: 2.5rem;
+  --fs-3xl: 3.4rem;
+
+  /* --- Spacing scale --- */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+  --sp-8: 4.5rem;
+  --sp-9: 6.5rem;
+
+  /* --- Structure --- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(7, 23, 23, 0.06);
+  --shadow-md: 0 8px 24px rgba(7, 23, 23, 0.10);
+  --shadow-lg: 0 20px 48px rgba(7, 23, 23, 0.16);
+  --max-width: 1180px;
+  --transition: 180ms ease;
+}
+
+/* ---------- Theme: Mourning / Memorial (section 133) ---------- */
+[data-theme="mourning"] {
+  --color-bg: #f4f4f4;
+  --color-surface: #ffffff;
+  --color-surface-alt: #ececec;
+  --color-header: #111111;
+  --color-footer: #111111;
+  --color-text: #1c1c1c;
+  --color-text-muted: #5c5c5c;
+  --color-heading: #111111;
+  --color-border: #cfcfcf;
+  --color-primary: #2b2b2b;
+  --color-primary-dark: #171717;
+  --color-accent: #8a8a8a;
+  --color-accent-soft: #d4d4d4;
+  --color-link: #2b2b2b;
+}
+
+/* ---------- Theme: Summer (section 134) ---------- */
+[data-theme="summer"] {
+  --color-bg: #f3f8f4;
+  --color-primary: #0e6e6e;
+  --color-primary-dark: #0a4f4f;
+  --color-accent: #e8b23d;
+  --color-accent-soft: #f6dfa4;
+  --color-link: #0e6e6e;
+}
+
+/* ---------- Theme: Christmas (section 135) ---------- */
+[data-theme="christmas"] {
+  --color-primary: #123f26;
+  --color-primary-dark: #0b2818;
+  --color-accent: #c9a85d;
+  --color-accent-soft: #7a1f2b;
+  --color-header: #0b2818;
+  --color-footer: #0b2818;
+}
+
+/* ---------- Theme: Valentine's (section 136) ---------- */
+[data-theme="valentine"] {
+  --color-primary: #7a1f2b;
+  --color-primary-dark: #591520;
+  --color-accent: #c9a85d;
+  --color-accent-soft: #e6c9cd;
+  --color-link: #7a1f2b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="off"] *::after {
+  animation: none !important;
+  transition: none !important;
+}

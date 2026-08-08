@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teacher Directory — EDC</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header id="site-header" class="site-header"></header>
+
+<section class="hero" style="padding:var(--sp-8) 0;">
+  <div class="container">
+    <span class="eyebrow">Teacher Directory</span>
+    <h1 style="max-width:700px;">Meet educators placed through EDC.</h1>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="grid grid-4" id="teachersGrid"></div>
+    <div class="empty-state hidden" id="emptyState"><h3>No teachers found.</h3><p>Try adjusting your search.</p></div>
+  </div>
+</section>
+
+<footer id="site-footer" class="site-footer"></footer>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/demo-data.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(async function () {
+  await EDC_UI.renderHeader();
+  await EDC_UI.renderFooter();
+  const teachers = (await EDC_API.getTeachers()).data || [];
+  const grid = document.getElementById("teachersGrid");
+  if (!teachers.length) { document.getElementById("emptyState").classList.remove("hidden"); return; }
+  grid.innerHTML = teachers.map(t => `
+    <a href="teacher.html?id=${t.id}" class="card teacher-card">
+      <div class="card-media"><img src="${t.photo}" alt="${EDC_UI.escapeHtml(t.name)}"></div>
+      <div class="card-body">
+        <h3>${EDC_UI.escapeHtml(t.name)}</h3>
+        <div class="role">${EDC_UI.escapeHtml(t.position)} · ${EDC_UI.escapeHtml(t.location)}</div>
+        <div class="subjects">${(t.subjects||[]).map(s=>`<span class="pill">${EDC_UI.escapeHtml(s)}</span>`).join("")}</div>
+      </div>
+    </a>
+  `).join("");
+})();
+</script>
+</body>
+</html>

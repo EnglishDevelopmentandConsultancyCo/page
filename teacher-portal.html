@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teacher Portal — EDC</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header id="site-header" class="site-header"></header>
+
+<section class="section">
+  <div class="container" style="max-width:760px;">
+    <div class="flex-between mb-6">
+      <div><span class="eyebrow">Teacher Portal</span><h1 id="welcomeTitle">My Profile</h1></div>
+      <button class="btn btn-outline" id="logoutBtn">Log Out</button>
+    </div>
+    <div id="profileForm" class="card"><div class="card-body loading-state">Loading your profile…</div></div>
+  </div>
+</section>
+
+<footer id="site-footer" class="site-footer"></footer>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/demo-data.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(async function () {
+  const session = EDC_UI.requireRole(["teacher"]);
+  if (!session) return;
+  await EDC_UI.renderHeader();
+  await EDC_UI.renderFooter();
+  document.getElementById("welcomeTitle").textContent = `Welcome, ${session.name}`;
+
+  const t = (await EDC_API.getTeacher(session.teacherId)).data;
+  const wrap = document.getElementById("profileForm");
+  wrap.innerHTML = `<div class="card-body">
+    <div class="field"><label>Full name (locked — contact admin to change)</label><input class="input" value="${EDC_UI.escapeHtml(t.name)}" disabled></div>
+    <div class="field"><label>Biography</label><textarea class="input" id="bioField">${EDC_UI.escapeHtml(t.bio)}</textarea></div>
+    <div class="field"><label>Subjects (comma-separated)</label><input class="input" id="subjectsField" value="${EDC_UI.escapeHtml((t.subjects||[]).join(', '))}"></div>
+    <div class="field"><label>Years of experience</label><input class="input" type="number" id="yearsField" value="${t.years}"></div>
+    <button class="btn btn-primary" id="saveProfileBtn">Save Changes</button>
+    <p class="hint mt-2">Note: teachers cannot view other applicants, admin dashboards, or company-wide content — access is restricted to this profile only, per role permissions.</p>
+  </div>`;
+  document.getElementById("saveProfileBtn").addEventListener("click", () => {
+    EDC_UI.toast("Profile changes saved (demo mode — not persisted).", "success");
+  });
+  document.getElementById("logoutBtn").addEventListener("click", () => { EDC_API.logout(); window.location.href = "login.html"; });
+})();
+</script>
+</body>
+</html>

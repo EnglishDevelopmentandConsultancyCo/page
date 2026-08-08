@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About Us — EDC</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header id="site-header" class="site-header"></header>
+
+<section class="hero" style="padding:var(--sp-8) 0;">
+  <div class="container">
+    <span class="eyebrow">About EDC</span>
+    <h1 style="max-width:700px;">Built by educators, for the schools and teachers of Thailand.</h1>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container grid grid-2" style="align-items:center;">
+    <div>
+      <span class="eyebrow">Our Story</span>
+      <h2>A recruitment partner rooted in the classroom.</h2>
+      <p class="mt-4">EDC was founded to close the gap between qualified English teachers abroad and the Thai schools that need them — with a process that respects both sides: transparent for applicants, thorough for schools.</p>
+      <p class="mt-4">Today EDC supports partner campuses across Bangkok, Chiang Mai and Phuket, managing everything from first application to visa paperwork and first-day orientation.</p>
+    </div>
+    <div class="hero-photo" style="aspect-ratio:1/1;"><img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&q=80" alt="EDC team meeting"></div>
+  </div>
+</section>
+
+<section class="section section-alt">
+  <div class="container grid grid-3">
+    <div class="card"><div class="card-body">
+      <span class="tag">Mission</span>
+      <h3 class="mt-4">Match the right teacher to the right classroom.</h3>
+      <p class="muted">We screen for teaching fit, not just qualifications on paper.</p>
+    </div></div>
+    <div class="card"><div class="card-body">
+      <span class="tag">Vision</span>
+      <h3 class="mt-4">A trusted staffing standard across Thai education.</h3>
+      <p class="muted">Recognized by schools and teachers alike as the clearest way to hire and be hired.</p>
+    </div></div>
+    <div class="card"><div class="card-body">
+      <span class="tag">Values</span>
+      <h3 class="mt-4">Transparency, integrity, and follow-through.</h3>
+      <p class="muted">Every applicant knows exactly where they stand, at every stage.</p>
+    </div></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-head center"><span class="eyebrow">Gallery</span><h2>Life at EDC partner campuses.</h2></div>
+    <div class="grid grid-3" id="galleryGrid"></div>
+  </div>
+</section>
+
+<footer id="site-footer" class="site-footer"></footer>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/demo-data.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(async function () {
+  await EDC_UI.renderHeader();
+  await EDC_UI.renderFooter();
+  const gallery = (await EDC_API.getGallery()).data || [];
+  document.getElementById("galleryGrid").innerHTML = gallery.slice(0,6).map(src => `
+    <div class="card-media" style="border-radius:var(--radius-md);"><img src="${src}" alt="EDC campus life"></div>
+  `).join("");
+})();
+</script>
+</body>
+</html>

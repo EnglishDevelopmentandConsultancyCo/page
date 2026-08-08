@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">Teacher Profile — EDC</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header id="site-header" class="site-header"></header>
+
+<section class="section" id="profileWrap">
+  <div class="container loading-state">Loading profile…</div>
+</section>
+
+<section class="section section-alt">
+  <div class="container">
+    <div class="section-head"><span class="eyebrow">Suggestions</span><h2>Leave a comment on this profile.</h2></div>
+    <form id="commentForm" class="card" style="max-width:600px;">
+      <div class="card-body">
+        <div class="field"><label>Name (optional)</label><input class="input" id="cName" placeholder="Leave blank to post anonymously"></div>
+        <div class="field"><label>Message</label><textarea class="input" id="cMessage" required></textarea></div>
+        <button class="btn btn-primary" type="submit">Submit</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<footer id="site-footer" class="site-footer"></footer>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/demo-data.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(async function () {
+  await EDC_UI.renderHeader();
+  await EDC_UI.renderFooter();
+  const id = new URLSearchParams(location.search).get("id");
+  const wrap = document.getElementById("profileWrap");
+  const res = await EDC_API.getTeacher(id);
+  if (!res.success) {
+    wrap.innerHTML = `<div class="container empty-state"><h3>Teacher not found</h3><p>${EDC_UI.escapeHtml(res.error?.message || "")}</p><a href="teachers.html" class="btn btn-outline mt-4">Back to directory</a></div>`;
+    return;
+  }
+  const t = res.data;
+  document.getElementById("pageTitle").textContent = t.name + " — EDC";
+  wrap.innerHTML = `
+    <div class="container grid grid-2" style="align-items:start;">
+      <div class="hero-photo" style="aspect-ratio:3/4;"><img src="${t.photo}" alt="${EDC_UI.escapeHtml(t.name)}"></div>
+      <div>
+        <span class="eyebrow">${EDC_UI.escapeHtml(t.location)} · ${EDC_UI.escapeHtml(t.nationality)}</span>
+        <h1>${EDC_UI.escapeHtml(t.name)}</h1>
+        <p class="muted" style="font-size:var(--fs-md);margin:.5rem 0 1.5rem;">${EDC_UI.escapeHtml(t.position)}</p>
+        <p>${EDC_UI.escapeHtml(t.bio)}</p>
+        <div class="grid grid-2" style="margin-top:1.5rem;gap:1rem;">
+          <div class="stat-card"><div class="value">${t.years}</div><div class="label">Years Teaching</div></div>
+          <div class="stat-card"><div class="value">${t.years_thailand}</div><div class="label">Years in Thailand</div></div>
+        </div>
+        <div class="subjects mt-6">${(t.subjects||[]).map(s=>`<span class="pill">${EDC_UI.escapeHtml(s)}</span>`).join("")}</div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("commentForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("cName").value.trim() || "Anonymous";
+    const message = document.getElementById("cMessage").value.trim();
+    if (!message) return;
+    const r = await EDC_API.createComment({ name, message, page_type: "teacher", page_id: id });
+    EDC_UI.toast(r.message || "Submitted.", r.success ? "success" : "error");
+    if (r.success) e.target.reset();
+  });
+})();
+</script>
+</body>
+</html>

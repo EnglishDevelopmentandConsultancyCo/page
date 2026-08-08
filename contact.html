@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contact — EDC</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header id="site-header" class="site-header"></header>
+
+<section class="section">
+  <div class="container grid grid-2">
+    <div>
+      <span class="eyebrow">Contact</span>
+      <h1>Get in touch with EDC.</h1>
+      <div class="panel mt-6" id="contactInfo"></div>
+    </div>
+    <div class="card"><div class="card-body">
+      <h3 class="mb-4">Send a message</h3>
+      <form id="contactForm">
+        <div class="field-row">
+          <div class="field"><label>Name</label><input class="input" id="fName" required></div>
+          <div class="field"><label>Email</label><input class="input" type="email" id="fEmail" required></div>
+        </div>
+        <div class="field"><label>Message</label><textarea class="input" id="fMessage" required></textarea></div>
+        <button class="btn btn-primary btn-block" type="submit">Send Message</button>
+      </form>
+    </div></div>
+  </div>
+</section>
+
+<footer id="site-footer" class="site-footer"></footer>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/demo-data.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>
+(async function () {
+  await EDC_UI.renderHeader();
+  await EDC_UI.renderFooter();
+  const s = (await EDC_API.getSiteSettings()).data;
+  document.getElementById("contactInfo").innerHTML = `
+    <p><strong>Phone</strong><br>${EDC_UI.escapeHtml(s.phone)}</p>
+    <p class="mt-4"><strong>Email</strong><br>${EDC_UI.escapeHtml(s.email)}</p>
+    <p class="mt-4"><strong>Address</strong><br>${EDC_UI.escapeHtml(s.address)}</p>
+    <p class="mt-4"><strong>Hours</strong><br>${EDC_UI.escapeHtml(s.hours)}</p>
+  `;
+  document.getElementById("contactForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("fName").value;
+    const email = document.getElementById("fEmail").value;
+    const message = document.getElementById("fMessage").value;
+    const r = await EDC_API.createComment({ name, email, message, page_type: "contact" });
+    EDC_UI.toast(r.message || "Message sent.", r.success ? "success" : "error");
+    if (r.success) e.target.reset();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apply Now — EDC</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+<header id="site-header" class="site-header"></header>
+
+<section class="section">
+  <div class="container">
+    <span class="eyebrow">Application</span>
+    <h1>Apply to teach with EDC</h1>
+    <p class="muted mt-4" style="max-width:600px;">Your progress is saved automatically as a draft. You can leave and come back anytime before submitting.</p>
+
+    <div class="progress-bar mt-6"><i id="progressFill" style="width:0%"></i></div>
+
+    <div class="wizard mt-6">
+      <ol class="wizard-steps" id="stepsList"></ol>
+      <div class="wizard-panel">
+        <div id="stepContent"></div>
+        <div class="wizard-actions">
+          <button class="btn btn-outline" id="btnPrev">← Previous</button>
+          <div class="flex gap-3">
+            <button class="btn btn-ghost" id="btnSaveDraft">Save Draft</button>
+            <button class="btn btn-primary" id="btnNext">Next →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer id="site-footer" class="site-footer"></footer>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/demo-data.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/wizard.js"></script>
+<script>
+(async function () {
+  await EDC_UI.renderHeader();
+  await EDC_UI.renderFooter();
+  await EDCWizard.init();
+})();
+</script>
+</body>
+</html>
