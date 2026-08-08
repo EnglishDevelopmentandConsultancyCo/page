@@ -15,7 +15,7 @@ window.EDC_CONFIG = {
   //                      no backend required. Great for previewing
   //                      the UI or presenting to stakeholders.
   // DEMO_MODE = false -> frontend calls the real Apps Script API_URL.
-  DEMO_MODE: true,
+  DEMO_MODE: false,
 
   COMPANY_NAME: "English Development Consultants",
   COMPANY_SHORT: "EDC",
