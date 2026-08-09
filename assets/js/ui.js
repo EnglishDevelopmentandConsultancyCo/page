@@ -1,8 +1,13 @@
 /**
- * SHARED UI HELPERS
+ * SHARED UI HELPERS (v2)
  * Renders header/footer from CMS data, provides toasts, guards
  * admin/teacher pages by role, and shows the optional announcement
  * banner + popup (spec §148-168, simplified single-announcement version).
+ *
+ * Change from v1: renderFooter() now checks for Page Builder "footer"
+ * sections on the "site-footer" page slug. If found, those editable
+ * link groups replace the hardcoded footer links. Falls back to the
+ * built-in footer if no builder footer sections exist.
  */
 const EDC_UI = (() => {
 
@@ -77,6 +82,23 @@ const EDC_UI = (() => {
     if (!mount) return;
     const res = await EDC_API.getSiteSettings();
     const s = res.data || {};
+
+    let footerLinkGroups = "";
+    try {
+      if (typeof EDC_PUBLIC_PAGE !== "undefined" && EDC_PUBLIC_PAGE.renderFooterSections) {
+        footerLinkGroups = await EDC_PUBLIC_PAGE.renderFooterSections();
+      }
+    } catch (e) { footerLinkGroups = ""; }
+
+    if (footerLinkGroups) {
+      mount.innerHTML = footerLinkGroups +
+        '<div class="container footer-bottom">' +
+          '<span>© ' + new Date().getFullYear() + ' ' + escapeHtml(s.company_name || "EDC") + '. All rights reserved.</span>' +
+          '<span>Platform by ' + escapeHtml(window.EDC_CONFIG.DEVELOPER_NAME) + '</span>' +
+        '</div>';
+      return;
+    }
+
     mount.innerHTML = `
       <div class="container footer-grid">
         <div>

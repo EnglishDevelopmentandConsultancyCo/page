@@ -145,6 +145,22 @@
 .ua-role h4 { margin: 0 0 4px; font-size: 14px; }
 .ua-perms { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 2px 14px; margin: 10px 0; }
 
+/* ---------- info panel (builder help guide) ---------- */
+.pb-info-panel {
+  background: #f0f4fa; border: 1px solid #cdd8e8; border-radius: 10px;
+  padding: 14px; margin-bottom: 14px; font-size: 12.5px; line-height: 1.55;
+}
+.pb-info-panel h4 { margin: 0 0 8px; font-size: 14px; color: var(--pb-navy); }
+.pb-info-panel p { margin: 0 0 8px; color: var(--pb-text); }
+.pb-info-panel p:last-child { margin-bottom: 0; }
+.pb-info-panel strong { color: var(--pb-navy); }
+
+/* ---------- footer group editor ---------- */
+.pb-footer-group {
+  border: 1px solid var(--pb-line); border-radius: 10px; padding: 12px;
+  margin-bottom: 12px; background: #fafbfd;
+}
+
 /* ---------- public-page debug panel ---------- */
 .edc-debug {
   position: fixed; right: 16px; bottom: 16px; z-index: 9999; width: 340px; max-height: 60vh; overflow: auto;

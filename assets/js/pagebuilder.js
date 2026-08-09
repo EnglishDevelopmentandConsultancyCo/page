@@ -1,17 +1,12 @@
 /**
- * PAGEBUILDER.JS — REPLACEMENT FILE
+ * PAGEBUILDER.JS — REPLACEMENT FILE (v2)
  * ---------------------------------------------------------------
- * A professional visual page builder:
- *  - Pages rail with slug / publish state / render mode
- *  - Drag-and-drop section canvas with live thumbnails
- *  - Right-hand Inspector with real form fields (no more prompt()
- *    for raw JSON) covering content AND full styling:
- *      section: background, text colour, padding, max width,
- *               alignment, min height, background image + overlay
- *      image:   width, height, max width, object-fit, focal point,
- *               corner radius, shadow, alignment, margins
- *  - Live preview panel that renders exactly like the public site
- *  - Save / duplicate / hide / delete / reorder, all verified
+ * Changes from v1:
+ *  - New section type: "footer" — edit footer link groups + body text
+ *  - New section type: "body"   — multi-paragraph text with spacing
+ *  - Info panel toggle showing how to use the builder
+ *  - Body text hint: use blank lines to separate paragraphs
+ *  - Section summary now shows body text snippet for text/body types
  * ---------------------------------------------------------------
  */
 const EDC_PAGEBUILDER = (() => {
@@ -20,12 +15,14 @@ const EDC_PAGEBUILDER = (() => {
   let root, state = { pages: [], sections: [], activePageId: null, activeSectionId: null, dirty: false };
 
   const TYPES = [
-    { id: "hero", label: "Hero banner" },
-    { id: "text", label: "Text block" },
-    { id: "image", label: "Image" },
-    { id: "split", label: "Image + text" },
-    { id: "grid", label: "Card grid" },
-    { id: "cta", label: "Call to action" },
+    { id: "hero",   label: "Hero banner" },
+    { id: "text",   label: "Text block" },
+    { id: "body",   label: "Body text (multi-paragraph)" },
+    { id: "image",  label: "Image" },
+    { id: "split",  label: "Image + text" },
+    { id: "grid",   label: "Card grid" },
+    { id: "cta",    label: "Call to action" },
+    { id: "footer", label: "Footer links" },
     { id: "spacer", label: "Spacer" }
   ];
 
@@ -52,7 +49,16 @@ const EDC_PAGEBUILDER = (() => {
     root.innerHTML =
       '<div class="pb">' +
         '<aside class="pb-rail">' +
-          '<div class="pb-rail-head"><h3>Pages</h3><button class="pb-btn pb-btn-ghost" id="pb-new-page">+ New</button></div>' +
+          '<div class="pb-rail-head"><h3>Pages</h3><div><button class="pb-btn pb-btn-ghost pb-btn-sm" id="pb-info" title="How to use the builder">?</button> <button class="pb-btn pb-btn-ghost" id="pb-new-page">+ New</button></div></div>' +
+          '<div class="pb-info-panel" id="pb-info-panel" hidden>' +
+            '<h4>Page Builder Guide</h4>' +
+            '<p><strong>Content mode</strong> — set to <em>replace</em> to make your builder sections take over the built-in page content. Set to <em>append</em> to add sections below the existing content.</p>' +
+            '<p><strong>Sections</strong> — drag to reorder, click to edit. Use the Content tab for text/images, the Design tab for colours/spacing/layout, and the Image tab for resize/crop/placement.</p>' +
+            '<p><strong>Body text</strong> — use the "Body text" type for multi-paragraph content. Leave a blank line between paragraphs to create spacing.</p>' +
+            '<p><strong>Footer links</strong> — use the "Footer links" section type to edit the link groups shown at the bottom of every page (About Us, Services, Careers, etc.).</p>' +
+            '<p><strong>Images</strong> — in the Image tab you can set width, height, crop behaviour (cover/contain/fill), focal point, corner radius, alignment, margins, and drop shadow. Photos can be placed anywhere and resized to any dimensions.</p>' +
+            '<p><strong>Preview</strong> — click Preview to see exactly how the page will look to visitors.</p>' +
+          '</div>' +
           '<ul class="pb-pages" id="pb-pages"></ul>' +
           '<div class="pb-page-settings" id="pb-page-settings"></div>' +
         '</aside>' +
@@ -79,6 +85,10 @@ const EDC_PAGEBUILDER = (() => {
     root.querySelector("#pb-save-order").onclick = saveOrder;
     root.querySelector("#pb-preview").onclick = openPreview;
     root.querySelector("#pb-preview-close").onclick = () => { root.querySelector("#pb-preview-overlay").hidden = true; };
+    root.querySelector("#pb-info").onclick = () => {
+      const panel = root.querySelector("#pb-info-panel");
+      panel.hidden = !panel.hidden;
+    };
   }
 
   /* -------------------------------- pages -------------------------------- */
@@ -130,7 +140,7 @@ const EDC_PAGEBUILDER = (() => {
       field("Slug (file name)", '<input class="pb-input" id="pg-slug" value="' + esc(page.slug) + '">') +
       field("Status", select("pg-status", ["Published", "Draft"], page.status || "Published")) +
       field("Content mode", select("pg-mode", ["append", "replace"], page.render_mode || "append")) +
-      '<p class="pb-hint">“replace” makes your live sections take over the built-in HTML region on that page. “append” adds them below it.</p>' +
+      '<p class="pb-hint">"replace" makes your live sections take over the built-in HTML region on that page. "append" adds them below it.</p>' +
       '<label class="pb-check"><input type="checkbox" id="pg-nav" ' + (page.in_navigation ? "checked" : "") + '> Show in main navigation</label>' +
       field("Menu order", '<input class="pb-input" type="number" id="pg-order" value="' + esc(page.order || 0) + '">') +
       '<div class="pb-row"><button class="pb-btn pb-btn-primary" id="pg-save">Save page</button>' +
@@ -179,7 +189,11 @@ const EDC_PAGEBUILDER = (() => {
 
   function summary(s) {
     const c = parse(s.content_json);
-    return c.title || c.heading || c.text || c.body || "(no heading yet)";
+    var head = c.title || c.heading || c.text || c.body || "";
+    if (!head && s.type === "footer") head = "Footer link groups";
+    if (!head && s.type === "spacer") head = "Spacer";
+    if (!head && s.type === "image") head = c.alt || "Image";
+    return head || "(no heading yet)";
   }
 
   function sectionCard(s, i) {
@@ -234,10 +248,15 @@ const EDC_PAGEBUILDER = (() => {
     const starters = {
       hero: { eyebrow: "EDC", title: "New hero heading", body: "Short supporting sentence.", cta_label: "Get started", cta_url: "apply.html" },
       text: { title: "New section", body: "Write your content here." },
+      body: { title: "", body: "First paragraph of your body text.\n\nSecond paragraph — the blank line above creates a gap between paragraphs.\n\nAdd as many paragraphs as you need." },
       image: { title: "", image_url: "", alt: "" },
       split: { title: "Image and text", body: "Describe the service.", image_url: "" },
       grid: { title: "Highlights", items: [{ title: "Item one", text: "Detail" }, { title: "Item two", text: "Detail" }, { title: "Item three", text: "Detail" }] },
       cta: { title: "Ready to apply?", body: "We place teachers across Thailand.", cta_label: "Apply now", cta_url: "apply.html" },
+      footer: { groups: [
+        { title: "Company", links: [{ label: "About Us", url: "about.html" }, { label: "Services", url: "services.html" }, { label: "Teachers", url: "teachers.html" }, { label: "Careers", url: "careers.html" }] },
+        { title: "Resources", links: [{ label: "Contact", url: "contact.html" }, { label: "Apply Now", url: "apply.html" }, { label: "Portal Login", url: "login.html" }] }
+      ]},
       spacer: {}
     };
     const r = await api().createSection({ page_id: state.activePageId, type: type, content_json: starters[type] || {}, style_json: {} });
@@ -271,11 +290,49 @@ const EDC_PAGEBUILDER = (() => {
   function num(id, value, placeholder) { return '<input class="pb-input" id="' + id + '" value="' + esc(value == null ? "" : value) + '" placeholder="' + esc(placeholder || "auto") + '">'; }
   function color(id, value, fallback) { return '<input class="pb-input pb-color" type="color" id="' + id + '" value="' + esc(value || fallback) + '">'; }
 
+  function footerEditor(c) {
+    const groups = Array.isArray(c.groups) ? c.groups : [];
+    var html = '<p class="pb-hint">Edit the link groups shown at the bottom of every page. Add or remove groups and links.</p>';
+    groups.forEach(function (g, gi) {
+      html += '<div class="pb-footer-group" data-gi="' + gi + '">';
+      html += field("Group " + (gi + 1) + " title", text("ft-gtitle-" + gi, g.title));
+      html += field("Links (one per line — Label | URL)", area("ft-links-" + gi, (g.links || []).map(function (l) { return (l.label || "") + " | " + (l.url || ""); }).join("\n"), 5));
+      html += '<button class="pb-btn pb-btn-sm pb-btn-danger" data-act="delgroup" data-gi="' + gi + '">Remove group</button>';
+      html += '</div>';
+    });
+    html += '<button class="pb-btn pb-btn-sm" id="ft-add-group">+ Add link group</button>';
+    return html;
+  }
+
   function renderInspector() {
     const box = root.querySelector("#pb-inspector");
     const s = state.sections.find(x => x.section_id === state.activeSectionId);
     if (!s) { box.innerHTML = '<div class="edc-empty">Select a section to edit its content and styling.</div>'; return; }
     const c = parse(s.content_json), st = parse(s.style_json), im = st.image || {};
+
+    var contentFields =
+      field("Section type", select("in-type", TYPES.map(t => t.id), s.type)) +
+      field("Eyebrow / kicker", text("in-eyebrow", c.eyebrow)) +
+      field("Heading", text("in-title", c.title || c.heading)) +
+      field("Body text", area("in-body", c.body || c.text || c.content, 6));
+
+    if (s.type === "body") {
+      contentFields += '<p class="pb-hint">Leave a blank line between paragraphs to create spacing. You can add as many paragraphs as you want.</p>';
+    }
+
+    contentFields +=
+      field("Button label", text("in-cta-label", c.cta_label)) +
+      field("Button link", text("in-cta-url", c.cta_url || c.url, "apply.html or https://…")) +
+      field("Image URL", text("in-image", c.image_url || c.image, "https://… or assets/img/photo.jpg")) +
+      field("Image alt text", text("in-alt", c.alt));
+
+    if (s.type === "grid") {
+      contentFields += field("Cards (one per line — Title | Text | Link)", area("in-items", (Array.isArray(c.items) ? c.items : []).map(i => [i.title || "", i.text || i.body || "", i.url || ""].join(" | ")).join("\n"), 6));
+    }
+
+    if (s.type === "footer") {
+      contentFields = field("Section type", select("in-type", TYPES.map(t => t.id), s.type)) + footerEditor(c);
+    }
 
     box.innerHTML =
       '<div class="pb-inspector-head"><h4>' + esc((TYPES.find(t => t.id === s.type) || {}).label || s.type) + '</h4>' +
@@ -283,21 +340,9 @@ const EDC_PAGEBUILDER = (() => {
 
       '<div class="pb-tabs"><button class="pb-tab is-active" data-tab="content">Content</button>' +
       '<button class="pb-tab" data-tab="style">Design</button>' +
-      '<button class="pb-tab" data-tab="image">Image</button></div>' +
+      (s.type === "footer" ? "" : '<button class="pb-tab" data-tab="image">Image</button>') + '</div>' +
 
-      '<div class="pb-tabpane" data-pane="content">' +
-        field("Section type", select("in-type", TYPES.map(t => t.id), s.type)) +
-        field("Eyebrow / kicker", text("in-eyebrow", c.eyebrow)) +
-        field("Heading", text("in-title", c.title || c.heading)) +
-        field("Body text", area("in-body", c.body || c.text || c.content, 6)) +
-        field("Button label", text("in-cta-label", c.cta_label)) +
-        field("Button link", text("in-cta-url", c.cta_url || c.url, "apply.html or https://…")) +
-        field("Image URL", text("in-image", c.image_url || c.image, "https://… or assets/img/photo.jpg")) +
-        field("Image alt text", text("in-alt", c.alt)) +
-        (s.type === "grid"
-          ? field("Cards (one per line — Title | Text | Link)", area("in-items", (Array.isArray(c.items) ? c.items : []).map(i => [i.title || "", i.text || i.body || "", i.url || ""].join(" | ")).join("\n"), 6))
-          : "") +
-      '</div>' +
+      '<div class="pb-tabpane" data-pane="content">' + contentFields + '</div>' +
 
       '<div class="pb-tabpane" data-pane="style" hidden>' +
         field("Background colour", color("st-bg", st.background, "#ffffff")) +
@@ -317,6 +362,7 @@ const EDC_PAGEBUILDER = (() => {
         '<label class="pb-check"><input type="checkbox" id="st-reverse" ' + (st.reverse ? "checked" : "") + '> Reverse image / text order</label>' +
       '</div>' +
 
+      (s.type === "footer" ? "" :
       '<div class="pb-tabpane" data-pane="image" hidden>' +
         '<p class="pb-hint">Resize and place the image exactly where you want it.</p>' +
         field("Width (px or %)", num("im-w", im.width, "e.g. 480 or 60%")) +
@@ -329,7 +375,7 @@ const EDC_PAGEBUILDER = (() => {
         field("Space above (px)", num("im-mt", im.marginTop)) +
         field("Space below (px)", num("im-mb", im.marginBottom)) +
         '<label class="pb-check"><input type="checkbox" id="im-shadow" ' + (im.shadow ? "checked" : "") + '> Drop shadow</label>' +
-      '</div>';
+      '</div>');
 
     box.querySelectorAll(".pb-tab").forEach(function (tab) {
       tab.onclick = function () {
@@ -337,6 +383,29 @@ const EDC_PAGEBUILDER = (() => {
         box.querySelectorAll(".pb-tabpane").forEach(p => { p.hidden = p.dataset.pane !== tab.dataset.tab; });
       };
     });
+
+    if (s.type === "footer") {
+      var addGroupBtn = box.querySelector("#ft-add-group");
+      if (addGroupBtn) addGroupBtn.onclick = function () {
+        var c2 = parse(s.content_json);
+        if (!Array.isArray(c2.groups)) c2.groups = [];
+        c2.groups.push({ title: "New Group", links: [{ label: "Link", url: "#" }] });
+        api().updateSection({ page_id: state.activePageId, section_id: s.section_id, content_json: c2, style_json: st }).then(function () {
+          selectPage(state.activePageId).then(function () { selectSection(s.section_id); });
+        });
+      };
+      box.querySelectorAll('[data-act="delgroup"]').forEach(function (btn) {
+        btn.onclick = function () {
+          var gi = parseInt(btn.dataset.gi, 10);
+          var c2 = parse(s.content_json);
+          c2.groups.splice(gi, 1);
+          api().updateSection({ page_id: state.activePageId, section_id: s.section_id, content_json: c2, style_json: st }).then(function () {
+            selectPage(state.activePageId).then(function () { selectSection(s.section_id); });
+          });
+        };
+      });
+    }
+
     box.querySelector("#in-save").onclick = () => saveSection(s);
   }
 
@@ -346,18 +415,35 @@ const EDC_PAGEBUILDER = (() => {
 
   async function saveSection(s) {
     const content = {};
-    maybe(content, "eyebrow", val("in-eyebrow"));
-    maybe(content, "title", val("in-title"));
-    maybe(content, "body", val("in-body"));
-    maybe(content, "cta_label", val("in-cta-label"));
-    maybe(content, "cta_url", val("in-cta-url"));
-    maybe(content, "image_url", val("in-image"));
-    maybe(content, "alt", val("in-alt"));
-    if (root.querySelector("#in-items")) {
-      content.items = val("in-items").split("\n").filter(Boolean).map(function (line) {
-        const parts = line.split("|").map(p => p.trim());
-        return { title: parts[0] || "", text: parts[1] || "", url: parts[2] || "" };
+
+    if (s.type === "footer") {
+      var groups = [];
+      var groupEls = root.querySelectorAll(".pb-footer-group");
+      groupEls.forEach(function (gel) {
+        var gi = parseInt(gel.dataset.gi, 10);
+        var title = val("ft-gtitle-" + gi);
+        var linksRaw = val("ft-links-" + gi);
+        var links = linksRaw.split("\n").filter(Boolean).map(function (line) {
+          var parts = line.split("|").map(function (p) { return p.trim(); });
+          return { label: parts[0] || "", url: parts[1] || "" };
+        });
+        groups.push({ title: title, links: links });
       });
+      content.groups = groups;
+    } else {
+      maybe(content, "eyebrow", val("in-eyebrow"));
+      maybe(content, "title", val("in-title"));
+      maybe(content, "body", val("in-body"));
+      maybe(content, "cta_label", val("in-cta-label"));
+      maybe(content, "cta_url", val("in-cta-url"));
+      maybe(content, "image_url", val("in-image"));
+      maybe(content, "alt", val("in-alt"));
+      if (root.querySelector("#in-items")) {
+        content.items = val("in-items").split("\n").filter(Boolean).map(function (line) {
+          const parts = line.split("|").map(p => p.trim());
+          return { title: parts[0] || "", text: parts[1] || "", url: parts[2] || "" };
+        });
+      }
     }
 
     const style = {};
@@ -377,18 +463,20 @@ const EDC_PAGEBUILDER = (() => {
     maybe(style, "buttonVariant", val("st-btn"));
     if (checked("st-reverse")) style.reverse = true;
 
-    const image = {};
-    maybe(image, "width", val("im-w"));
-    maybe(image, "maxWidth", val("im-maxw"));
-    maybe(image, "height", val("im-h"));
-    maybe(image, "fit", val("im-fit"));
-    maybe(image, "position", val("im-pos"));
-    maybe(image, "radius", val("im-radius"));
-    maybe(image, "align", val("im-align"));
-    maybe(image, "marginTop", val("im-mt"));
-    maybe(image, "marginBottom", val("im-mb"));
-    if (checked("im-shadow")) image.shadow = true;
-    if (Object.keys(image).length) style.image = image;
+    if (s.type !== "footer") {
+      const image = {};
+      maybe(image, "width", val("im-w"));
+      maybe(image, "maxWidth", val("im-maxw"));
+      maybe(image, "height", val("im-h"));
+      maybe(image, "fit", val("im-fit"));
+      maybe(image, "position", val("im-pos"));
+      maybe(image, "radius", val("im-radius"));
+      maybe(image, "align", val("im-align"));
+      maybe(image, "marginTop", val("im-mt"));
+      maybe(image, "marginBottom", val("im-mb"));
+      if (checked("im-shadow")) image.shadow = true;
+      if (Object.keys(image).length) style.image = image;
+    }
 
     const r = await api().updateSection({
       page_id: state.activePageId, section_id: s.section_id,
