@@ -28,6 +28,7 @@
       <div class="admin-nav-group">
         <h5>Website</h5>
         <a href="#" data-view="settings">Site Settings</a>
+        <a href="#" data-view="homepage">Homepage Layout</a>
         <a href="#" data-view="comments">Comments</a>
         <a href="#" data-view="pagebuilder">Page Builder</a>
         <a href="#" data-view="themes">Themes</a>
@@ -205,6 +206,12 @@ async function viewSettings() {
   });
 }
 
+async function viewHomepage() {
+  showViewContent();
+  document.getElementById("viewContent").innerHTML = '<div id="hp-admin-container"><p class="edc-muted">Loading homepage layout manager…</p></div>';
+  EDC_HOMEPAGE.renderAdmin(document.getElementById("hp-admin-container"));
+}
+
 async function viewComments() {
   showViewContent();
   const comments = (await EDC_API.getComments()).data || [];
@@ -243,7 +250,7 @@ function viewAccounts() { showAdminModule("edc-accounts"); }
 const VIEWS = {
   dashboard: viewDashboard, applicants: viewApplicants, jobs: viewJobs, settings: viewSettings,
   comments: viewComments, developer: viewDeveloper, pagebuilder: viewPageBuilder,
-  themes: viewThemes, email: viewEmail, accounts: viewAccounts,
+  themes: viewThemes, email: viewEmail, accounts: viewAccounts, homepage: viewHomepage,
 };
 
 function bindNav() {
@@ -273,6 +280,7 @@ function bindNav() {
 <script src="assets/js/theme.js"></script>
 <script src="assets/js/popups.js"></script>
 <script src="assets/js/pagebuilder.js"></script>
+<script src="assets/js/homepage-manager.js"></script>
 <script src="assets/js/email.js"></script>
 <script src="assets/js/themes-admin.js"></script>
 <script src="assets/js/users-admin.js"></script>

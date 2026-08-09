@@ -13,68 +13,8 @@
 <header id="site-header" class="site-header"></header>
 
 <main data-edc-region>
-  <section class="hero">
-    <div class="container hero-grid">
-      <div>
-        <span class="eyebrow">English Development Consultants</span>
-        <h1 id="heroTitle">Placing exceptional English teachers across Thailand.</h1>
-        <p class="lead" id="heroSubtitle">EDC connects qualified educators with schools throughout Thailand — handling recruitment, visa guidance, and onboarding from first application to first day of class.</p>
-        <div class="hero-actions">
-          <a href="careers.html" class="btn btn-gold">View Open Positions</a>
-          <a href="about.html" class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.5)">About EDC</a>
-        </div>
-      </div>
-      <div class="hero-figure">
-        <div class="hero-photo"><img src="https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=900&q=80" alt="Teacher leading a classroom in Thailand"></div>
-        <div class="stamp stamp-gold" style="position:absolute;bottom:-16px;left:-16px;background:#fff;box-shadow:var(--shadow-md)">EST. Thailand</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container">
-      <div class="section-head center">
-        <span class="eyebrow">Why Schools & Teachers Choose EDC</span>
-        <h2>A recruitment partner that handles the details.</h2>
-      </div>
-      <div class="grid grid-4" id="servicesGrid"></div>
-    </div>
-  </section>
-
-  <section class="section section-alt">
-    <div class="container">
-      <div class="flex-between" style="margin-bottom:var(--sp-7);flex-wrap:wrap;gap:1rem;">
-        <div class="section-head" style="margin-bottom:0;">
-          <span class="eyebrow">Teaching Opportunities</span>
-          <h2>Featured teachers on our roster.</h2>
-        </div>
-        <a href="teachers.html" class="btn btn-outline">View All Teachers</a>
-      </div>
-      <div class="grid grid-4" id="teachersGrid"></div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container">
-      <div class="cta-band">
-        <div>
-          <h2>Ready to teach in Thailand?</h2>
-          <p>Browse current openings or start your application today — you can save your progress and finish later.</p>
-        </div>
-        <a href="apply.html" class="btn btn-gold">Start Your Application</a>
-      </div>
-    </div>
-  </section>
-
-  <section class="section section-alt">
-    <div class="container">
-      <div class="section-head center">
-        <span class="eyebrow">Testimonials</span>
-        <h2>What teachers and partner schools say.</h2>
-      </div>
-      <div class="grid grid-3" id="testimonialsGrid"></div>
-    </div>
-  </section>
+  <!-- Homepage sections are rendered dynamically by homepage-manager.js -->
+  <div style="padding:4rem 1.5rem;text-align:center;color:var(--color-text-muted);">Loading…</div>
 </main>
 
 <footer id="site-footer" class="site-footer"></footer>
@@ -83,55 +23,19 @@
 <script src="assets/js/demo-data.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="assets/js/homepage-manager.js"></script>
 <script>
 (async function () {
   await EDC_UI.renderHeader();
   await EDC_UI.renderFooter();
-
-  const settings = (await EDC_API.getSiteSettings()).data;
-  if (settings) {
-    document.getElementById("heroTitle").textContent = settings.tagline || document.getElementById("heroTitle").textContent;
-    document.getElementById("heroSubtitle").textContent = settings.description || document.getElementById("heroSubtitle").textContent;
-  }
-
-  const services = (await EDC_API.getServices()).data || [];
-  document.getElementById("servicesGrid").innerHTML = services.map(s => `
-    <div class="card"><div class="card-body">
-      <div style="font-size:1.8rem;margin-bottom:.75rem;">${s.icon || "•"}</div>
-      <h3>${EDC_UI.escapeHtml(s.title)}</h3>
-      <p class="muted" style="font-size:.9rem;">${EDC_UI.escapeHtml(s.short)}</p>
-    </div></div>
-  `).join("");
-
-  const teachers = (await EDC_API.getTeachers({ featuredOnly: true })).data || [];
-  document.getElementById("teachersGrid").innerHTML = teachers.map(t => `
-    <a href="teacher.html?id=${t.id}" class="card teacher-card">
-      <div class="card-media"><img src="${t.photo}" alt="${EDC_UI.escapeHtml(t.name)}"></div>
-      <div class="card-body">
-        <h3>${EDC_UI.escapeHtml(t.name)}</h3>
-        <div class="role">${EDC_UI.escapeHtml(t.position)}</div>
-        <div class="subjects">${(t.subjects||[]).slice(0,2).map(s=>`<span class="pill">${EDC_UI.escapeHtml(s)}</span>`).join("")}</div>
-      </div>
-    </a>
-  `).join("");
-
-  const testimonials = (await EDC_API.getTestimonials()).data || [];
-  document.getElementById("testimonialsGrid").innerHTML = testimonials.map(t => `
-    <blockquote class="testimonial">
-      <p>"${EDC_UI.escapeHtml(t.quote)}"</p>
-      <footer><strong>${EDC_UI.escapeHtml(t.name)}</strong><br>${EDC_UI.escapeHtml(t.role)}</footer>
-    </blockquote>
-  `).join("");
+  await EDC_HOMEPAGE.render();
 })();
 </script>
 
-<script src="assets/js/config.js"></script>
-<script src="assets/js/api.js"></script>
 <script src="assets/js/api-extras.js"></script>
 <script src="assets/js/public-page.js"></script>
 <script src="assets/js/theme.js"></script>
 <script src="assets/js/popups.js"></script>
-
 
 </body>
 </html>
