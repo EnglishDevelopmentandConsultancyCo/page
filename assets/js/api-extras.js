@@ -62,6 +62,19 @@
     deleteRole: (role_id) => cfg.DEMO_MODE ? Promise.resolve(ok({ deleted: true })) : call("deleteRole", { role_id }, "POST"),
 
     // ---- Page builder additions ----
-    duplicateSection: (section_id) => cfg.DEMO_MODE ? Promise.resolve(ok({ section_id: "SEC-demo" })) : call("duplicateSection", { section_id }, "POST")
+    duplicateSection: (section_id) => cfg.DEMO_MODE ? Promise.resolve(ok({ section_id: "SEC-demo" })) : call("duplicateSection", { section_id }, "POST"),
+
+    
+    // ---- Media library (Page Builder images) --
+    getMedia: (params) => cfg.DEMO_MODE ? Promise.resolve(ok([])) : call("getMedia", params),
+    uploadMedia: (p) => cfg.DEMO_MODE ? Promise.resolve(ok(Object.assign({ media_id: "MED-demo" }, p))) : call("uploadMedia", p, "POST"),
+    updateMedia: (p) => cfg.DEMO_MODE ? Promise.resolve(ok(p)) : call("updateMedia", p, "POST"),
+    deleteMedia: (media_id) => cfg.DEMO_MODE ? Promise.resolve(ok({ deleted: true })) : call("deleteMedia", { media_id }, "POST"),
+
+    // ---- Page Builder slug picker ----
+    getAvailableSlugs: () => cfg.DEMO_MODE
+      ? Promise.resolve(ok({ staticFiles: [], blankSlots: [], assigned: [] }))
+      : call("getAvailableSlugs"),
+      
   });
 })();

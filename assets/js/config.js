@@ -9,7 +9,7 @@
 window.EDC_CONFIG = {
   // Paste your deployed Google Apps Script Web App URL here.
   // Example: "https://script.google.com/macros/s/AKfycb.../exec"
-  API_URL: "https://script.google.com/macros/s/AKfycbzTkI2NXo5cyxGbs_2KQ6-33MmF_e0Gy5wNslNLdYjX68uuq41P8myr_xE7Z3DbD51a/exec",
+  API_URL: "https://script.google.com/macros/s/AKfycbwWIaekjJN0i8Zs8iQeOmXoodW851Hb3DxmtGmvCozqhzDIpfDQUAZeTajmSTu5-G9e/exec",
 
   // DEMO_MODE = true  -> frontend runs entirely on local seed data,
   //                      no backend required. Great for previewing

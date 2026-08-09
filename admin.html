@@ -42,6 +42,11 @@
     </nav>
     <a href="index.html" class="btn btn-outline btn-sm btn-block mt-6" style="color:#fff;border-color:rgba(255,255,255,.3)">View Public Site</a>
     <button class="btn btn-ghost btn-sm btn-block mt-4" id="logoutBtn" style="color:rgba(255,255,255,.7)">Log Out</button>
+
+    <button class="btn btn-outline btn-sm" onclick="EDC_BUILDER_PLUS.mediaLibrary()">Media Library</button>
+   <button class="btn btn-outline btn-sm" onclick="EDC_BUILDER_PLUS.availableSlugs()">Available page files</button>
+   <button class="btn btn-outline btn-sm" onclick="EDC_BUILDER_PLUS.importCurrentHtml()">Import current page HTML</button>
+
   </aside>
 
   <main class="admin-main">
@@ -284,6 +289,11 @@ function bindNav() {
 <script src="assets/js/email.js"></script>
 <script src="assets/js/themes-admin.js"></script>
 <script src="assets/js/users-admin.js"></script>
+
+<script src="assets/js/media-picker.js"></script>
+<script src="assets/js/page-builder-plus.js"></script>
+<script src="assets/js/image-field-autobinder.js"></script>
+
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     EDC_PAGEBUILDER.init('#edc-pagebuilder');
