@@ -114,7 +114,7 @@ const EDC_HOMEPAGE = (() => {
       if (!section.visible) continue;
       switch (section.id) {
         case "hero": htmlParts.push(renderHero(hero)); break;
-        case "pagebuilder": htmlParts.push("<!--PAGEBUILDER-->"); break;
+        case "pagebuilder": htmlParts.push('<div id="pagebuilder-slot"></div>'); break;
         case "services": htmlParts.push(await renderServices()); break;
         case "teachers": htmlParts.push(await renderTeachers()); break;
         case "cta": htmlParts.push(await renderCTA(settings)); break;
@@ -135,6 +135,7 @@ const EDC_HOMEPAGE = (() => {
         const pbSections = (pbResult.data.sections || []).filter(s => String(s.visible).toLowerCase() !== "false");
         const pbHtml = pbSections.map(s => {
           if (typeof EDC_PUBLIC_PAGE !== "undefined" && EDC_PUBLIC_PAGE.renderSection) return EDC_PUBLIC_PAGE.renderSection(s);
+          if (typeof EDC_PAGEBUILDER !== "undefined" && EDC_PAGEBUILDER.renderSection) return EDC_PAGEBUILDER.renderSection(s);
           return "";
         }).join("");
         const slot = document.getElementById("pagebuilder-slot");
@@ -510,7 +511,7 @@ const EDC_HOMEPAGE = (() => {
       const fcData = getCurrentFooterCta();
       const r = await EDC_API.updateSiteSettings({ footer_cta: fcData });
       EDC_UI.toast(r.message || r.error?.message || "Unable to save CTA settings.", r.success ? "success" : "error");
-    });
+    };
   }
 
   function val(id) { const el = document.getElementById(id); return el ? el.value.trim() : ""; }
