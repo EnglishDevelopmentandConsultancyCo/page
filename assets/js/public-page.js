@@ -194,7 +194,8 @@ const EDC_PUBLIC_PAGE = (() => {
     const link2 = safeLink(data.cta2_url);
     if (!link2) return "";
     const es = elementStyle(st, "button2");
-    return '<a class="btn btn-outline edc-live-cta2"' + (es ? ' style="' + esc(es) + '"' : "") + ' style="margin-left:.5rem" href="' + esc(link2) + '">' + esc(data.cta2_label || "Learn more") + "</a>";
+    var styleAttr = es ? esc(es) + ";margin-left:.5rem" : "margin-left:.5rem";
+    return '<a class="btn btn-outline edc-live-cta2" style="' + styleAttr + '" href="' + esc(link2) + '">' + esc(data.cta2_label || "Learn more") + "</a>";
   }
 
   /* ------------------------------- renderers ------------------------------- */
