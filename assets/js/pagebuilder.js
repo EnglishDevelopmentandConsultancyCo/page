@@ -1,12 +1,21 @@
 /**
- * PAGEBUILDER.JS — REPLACEMENT FILE (v2)
+ * PAGEBUILDER.JS — ENHANCED REPLACEMENT FILE (v3)
  * ---------------------------------------------------------------
- * Changes from v1:
- *  - New section type: "footer" — edit footer link groups + body text
- *  - New section type: "body"   — multi-paragraph text with spacing
- *  - Info panel toggle showing how to use the builder
- *  - Body text hint: use blank lines to separate paragraphs
- *  - Section summary now shows body text snippet for text/body types
+ * What's new in v3 (per-element design controls):
+ *  - Every text element (eyebrow, heading, body, button, link, grid card
+ *    title, grid card text) has its OWN style controls:
+ *      font family, font size, font weight, text color, background color,
+ *      text alignment (left / center / right / justify),
+ *      bold, italic, underline, line height, letter spacing,
+ *      margin top / bottom, padding top / bottom,
+ *      text transform (none / uppercase / lowercase / capitalize),
+ *      border radius (for background pill effect)
+ *  - Images support SHAPE presets: circle, rounded, square, plus the
+ *    existing crop / resize / placement controls.
+ *  - Section-level style still controls the section background, padding,
+ *    max width, min height, corner radius, text alignment, etc.
+ *  - All new style data is stored in style_json.elements{} so the public
+ *    renderer (public-page.js) can apply it. No backend changes needed.
  * ---------------------------------------------------------------
  */
 const EDC_PAGEBUILDER = (() => {
@@ -25,6 +34,37 @@ const EDC_PAGEBUILDER = (() => {
     { id: "footer", label: "Footer links" },
     { id: "html",   label: "Raw HTML (imported)" },
     { id: "spacer", label: "Spacer" }
+  ];
+
+  const FONT_FAMILIES = [
+    "inherit", "Arial, sans-serif", "Georgia, serif", "'Times New Roman', serif",
+    "'Courier New', monospace", "Inter, sans-serif", "Roboto, sans-serif",
+    "Poppins, sans-serif", "Montserrat, sans-serif", "Playfair Display, serif",
+    "Lora, serif", "Merriweather, serif", "Open Sans, sans-serif",
+    "Raleway, sans-serif", "Nunito, sans-serif", "system-ui, sans-serif"
+  ];
+
+  const FONT_WEIGHTS = ["inherit", "300", "400", "500", "600", "700", "800", "900"];
+
+  const TEXT_TRANSFORMS = ["inherit", "none", "uppercase", "lowercase", "capitalize"];
+
+  const IMAGE_SHAPES = [
+    { id: "default",  label: "Default (use radius)" },
+    { id: "circle",   label: "Circle" },
+    { id: "rounded",  label: "Rounded square" },
+    { id: "square",   label: "Square (sharp edges)" }
+  ];
+
+  /* Element keys that get per-element styling */
+  const ELEMENT_KEYS = [
+    { id: "eyebrow",  label: "Eyebrow / Kicker" },
+    { id: "heading",  label: "Heading" },
+    { id: "body",     label: "Body text" },
+    { id: "button",   label: "Button" },
+    { id: "button2",  label: "Secondary button" },
+    { id: "cardTitle",  label: "Card title" },
+    { id: "cardText",   label: "Card text" },
+    { id: "cardButton", label: "Card button" }
   ];
 
   function parse(raw) {
@@ -54,10 +94,9 @@ const EDC_PAGEBUILDER = (() => {
           '<div class="pb-info-panel" id="pb-info-panel" hidden>' +
             '<h4>Page Builder Guide</h4>' +
             '<p><strong>Content mode</strong> — set to <em>replace</em> to make your builder sections take over the built-in page content. Set to <em>append</em> to add sections below the existing content.</p>' +
-            '<p><strong>Sections</strong> — drag to reorder, click to edit. Use the Content tab for text/images, the Design tab for colours/spacing/layout, and the Image tab for resize/crop/placement.</p>' +
-            '<p><strong>Body text</strong> — use the "Body text" type for multi-paragraph content. Leave a blank line between paragraphs to create spacing.</p>' +
-            '<p><strong>Footer links</strong> — use the "Footer links" section type to edit the link groups shown at the bottom of every page (About Us, Services, Careers, etc.).</p>' +
-            '<p><strong>Images</strong> — in the Image tab you can set width, height, crop behaviour (cover/contain/fill), focal point, corner radius, alignment, margins, and drop shadow. Photos can be placed anywhere and resized to any dimensions.</p>' +
+            '<p><strong>Sections</strong> — drag to reorder, click to edit. Use the Content tab for text/images, the Design tab for section-level colours/spacing/layout, the Element Style tab for per-element text styling, and the Image tab for resize/crop/shape/placement.</p>' +
+            '<p><strong>Element Style</strong> — style every text element individually: font family, size, weight, colour, background, alignment (left/center/right/justify), bold, italic, underline, line height, letter spacing, margins, padding, and text transform.</p>' +
+            '<p><strong>Images</strong> — choose shape (circle, rounded, square), set width, height, crop behaviour, focal point, alignment, margins, and drop shadow. Photos can be placed anywhere and resized to any dimensions.</p>' +
             '<p><strong>Preview</strong> — click Preview to see exactly how the page will look to visitors.</p>' +
           '</div>' +
           '<ul class="pb-pages" id="pb-pages"></ul>' +
@@ -204,9 +243,9 @@ const EDC_PAGEBUILDER = (() => {
     card.draggable = true;
     card.dataset.id = s.section_id;
     card.innerHTML =
-      '<div class="pb-section-grip" title="Drag to reorder">⠿</div>' +
+      '<div class="pb-section-grip" title="Drag to reorder">&#x2807;</div>' +
       '<div class="pb-section-body">' +
-        '<div class="pb-section-type">' + esc((TYPES.find(t => t.id === s.type) || {}).label || s.type) + ' · #' + (i + 1) + '</div>' +
+        '<div class="pb-section-type">' + esc((TYPES.find(t => t.id === s.type) || {}).label || s.type) + ' &middot; #' + (i + 1) + '</div>' +
         '<div class="pb-section-title">' + esc(String(summary(s)).slice(0, 90)) + '</div>' +
       '</div>' +
       '<div class="pb-section-actions">' +
@@ -284,14 +323,89 @@ const EDC_PAGEBUILDER = (() => {
   /* ------------------------------ inspector ------------------------------ */
 
   function field(label, control) { return '<label class="pb-field"><span>' + esc(label) + "</span>" + control + "</label>"; }
-  function select(id, options, value) {
-    return '<select class="pb-input" id="' + id + '">' + options.map(o =>
-      '<option value="' + esc(o) + '"' + (String(value) === String(o) ? " selected" : "") + ">" + esc(o) + "</option>").join("") + "</select>";
+  function selectOpts(id, options, value) {
+    return '<select class="pb-input" id="' + id + '">' + options.map(function (o) {
+      var val = typeof o === "object" ? (o.value || o.id) : o;
+      var lbl = typeof o === "object" ? (o.label || o.id) : o;
+      return '<option value="' + esc(val) + '"' + (String(value) === String(val) ? " selected" : "") + ">" + esc(lbl) + "</option>";
+    }).join("") + "</select>";
   }
   function text(id, value, placeholder) { return '<input class="pb-input" id="' + id + '" value="' + esc(value || "") + '" placeholder="' + esc(placeholder || "") + '">'; }
   function area(id, value, rows) { return '<textarea class="pb-input" rows="' + (rows || 4) + '" id="' + id + '">' + esc(value || "") + "</textarea>"; }
   function num(id, value, placeholder) { return '<input class="pb-input" id="' + id + '" value="' + esc(value == null ? "" : value) + '" placeholder="' + esc(placeholder || "auto") + '">'; }
-  function color(id, value, fallback) { return '<input class="pb-input pb-color" type="color" id="' + id + '" value="' + esc(value || fallback) + '">'; }
+  function color(id, value, fallback) { return '<input class="pb-input pb-color" type="color" id="' + id + '" value="' + esc(value || fallback || "#000000") + '">'; }
+  function checkbox(id, checked, label) { return '<label class="pb-check"><input type="checkbox" id="' + id + '"' + (checked ? " checked" : "") + "> " + esc(label) + "</label>"; }
+
+  /* ---- per-element style controls ---- */
+
+  /**
+   * Returns the elements available for a given section type.
+   * Not all elements exist in every section type.
+   */
+  function elementsForType(type) {
+    switch (type) {
+      case "hero":   return ["eyebrow", "heading", "body", "button", "button2"];
+      case "text":   return ["heading", "body"];
+      case "body":   return ["body"];
+      case "image":  return ["heading", "body", "button"];
+      case "split":  return ["heading", "body", "button"];
+      case "grid":   return ["eyebrow", "heading", "body", "button", "cardTitle", "cardText", "cardButton"];
+      case "cta":    return ["heading", "body", "button"];
+      default:       return [];
+    }
+  }
+
+  function elementStyleControls(elemKey, st) {
+    const els = (st && st.elements) || {};
+    const e = els[elemKey] || {};
+
+    return '<div class="pb-elem-group" data-elem="' + elemKey + '">' +
+      '<div class="pb-elem-head">' + esc((ELEMENT_KEYS.find(k => k.id === elemKey) || {}).label || elemKey) + '</div>' +
+      field("Font family", selectOpts("es-font-" + elemKey, FONT_FAMILIES, e.fontFamily || "inherit")) +
+      '<div class="pb-field-row">' +
+        field("Font size", num("es-size-" + elemKey, e.fontSize, "e.g. 18 or 1.2rem")) +
+        field("Font weight", selectOpts("es-weight-" + elemKey, FONT_WEIGHTS, e.fontWeight || "inherit")) +
+      '</div>' +
+      '<div class="pb-field-row">' +
+        field("Text color", color("es-color-" + elemKey, e.color, "#000000")) +
+        field("Background color", color("es-bg-" + elemKey, e.backgroundColor, "transparent")) +
+      '</div>' +
+      field("Text alignment", selectOpts("es-align-" + elemKey, ["inherit", "left", "center", "right", "justify"], e.textAlign || "inherit")) +
+      field("Text transform", selectOpts("es-transform-" + elemKey, TEXT_TRANSFORMS, e.textTransform || "inherit")) +
+      '<div class="pb-field-row">' +
+        checkbox("es-bold-" + elemKey, e.bold, "Bold") +
+        checkbox("es-italic-" + elemKey, e.italic, "Italic") +
+        checkbox("es-underline-" + elemKey, e.underline, "Underline") +
+      '</div>' +
+      '<div class="pb-field-row">' +
+        field("Line height", num("es-lh-" + elemKey, e.lineHeight, "e.g. 1.5")) +
+        field("Letter spacing (px)", num("es-ls-" + elemKey, e.letterSpacing, "e.g. 0.5")) +
+      '</div>' +
+      '<div class="pb-field-row">' +
+        field("Margin top (px)", num("es-mt-" + elemKey, e.marginTop, "0")) +
+        field("Margin bottom (px)", num("es-mb-" + elemKey, e.marginBottom, "0")) +
+      '</div>' +
+      '<div class="pb-field-row">' +
+        field("Padding top (px)", num("es-pt-" + elemKey, e.paddingTop, "0")) +
+        field("Padding bottom (px)", num("es-pb-" + elemKey, e.paddingBottom, "0")) +
+      '</div>' +
+      '<div class="pb-field-row">' +
+        field("Padding left (px)", num("es-pl-" + elemKey, e.paddingLeft, "0")) +
+        field("Padding right (px)", num("es-pr-" + elemKey, e.paddingRight, "0")) +
+      '</div>' +
+      field("Border radius (px)", num("es-radius-" + elemKey, e.borderRadius, "0")) +
+      '<button class="pb-btn pb-btn-sm pb-btn-ghost pb-elem-reset" data-elem="' + elemKey + '">Reset this element</button>' +
+    '</div>';
+  }
+
+  function elementStyleTab(type, st) {
+    const elems = elementsForType(type);
+    if (!elems.length) return '<p class="pb-hint">No per-element styling available for this section type.</p>';
+    return '<p class="pb-hint">Style each text element independently — font, size, weight, color, background, alignment, bold/italic/underline, spacing, and more.</p>' +
+      elems.map(function (k) { return elementStyleControls(k, st); }).join("");
+  }
+
+  /* ---- footer editor ---- */
 
   function footerEditor(c) {
     const groups = Array.isArray(c.groups) ? c.groups : [];
@@ -307,17 +421,16 @@ const EDC_PAGEBUILDER = (() => {
     return html;
   }
 
-
-  /* ---- card grid items: full repeater so photos + links stay editable ---- */
+  /* ---- card grid items ---- */
   var itemSeq = 0;
   function itemRow(it, i) {
     it = it || {};
-    return '<div class="pb-grid-item" data-ii="' + i + '" style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:10px;">' +
+    return '<div class="pb-grid-item" data-ii="' + i + '">' +
       field("Card title", text("it-title-" + i, it.title)) +
       field("Card text", area("it-text-" + i, it.text || it.body, 3)) +
-      field("Card link", text("it-url-" + i, it.url, "teacher.html?id=…")) +
+      field("Card link", text("it-url-" + i, it.url, "teacher.html?id=\u2026")) +
       field("Card button label", text("it-ctalabel-" + i, it.cta_label)) +
-      field("Card photo (image URL)", text("it-image-" + i, it.image_url || it.image, "https://… or assets/img/photo.jpg")) +
+      field("Card photo (image URL)", text("it-image-" + i, it.image_url || it.image, "https://\u2026 or assets/img/photo.jpg")) +
       field("Card photo alt text", text("it-alt-" + i, it.alt)) +
       '<button class="pb-btn pb-btn-sm pb-btn-danger" data-act="delitem" type="button">Remove card</button>' +
     '</div>';
@@ -352,7 +465,7 @@ const EDC_PAGEBUILDER = (() => {
     const c = parse(s.content_json), st = parse(s.style_json), im = st.image || {};
 
     var contentFields =
-      field("Section type", select("in-type", TYPES.map(t => t.id), s.type)) +
+      field("Section type", selectOpts("in-type", TYPES.map(t => t.id), s.type)) +
       field("Eyebrow / kicker", text("in-eyebrow", c.eyebrow)) +
       field("Heading", text("in-title", c.title || c.heading)) +
       field("Body text", area("in-body", c.body || c.text || c.content, 6));
@@ -363,10 +476,10 @@ const EDC_PAGEBUILDER = (() => {
 
     contentFields +=
       field("Button label", text("in-cta-label", c.cta_label)) +
-      field("Button link", text("in-cta-url", c.cta_url || c.url, "apply.html or https://…")) +
+      field("Button link", text("in-cta-url", c.cta_url || c.url, "apply.html or https://\u2026")) +
       field("Secondary button label", text("in-cta2-label", c.cta2_label)) +
       field("Secondary button link", text("in-cta2-url", c.cta2_url, "about.html")) +
-      field("Image URL", text("in-image", c.image_url || c.image, "https://… or assets/img/photo.jpg")) +
+      field("Image URL", text("in-image", c.image_url || c.image, "https://\u2026 or assets/img/photo.jpg")) +
       field("Image alt text", text("in-alt", c.alt));
 
     if (s.type === "grid") {
@@ -374,14 +487,18 @@ const EDC_PAGEBUILDER = (() => {
     }
 
     if (s.type === "footer") {
-      contentFields = field("Section type", select("in-type", TYPES.map(t => t.id), s.type)) + footerEditor(c);
+      contentFields = field("Section type", selectOpts("in-type", TYPES.map(t => t.id), s.type)) + footerEditor(c);
     }
 
     if (s.type === "html") {
-      contentFields = field("Section type", select("in-type", TYPES.map(t => t.id), s.type)) +
+      contentFields = field("Section type", selectOpts("in-type", TYPES.map(t => t.id), s.type)) +
         '<p class="pb-hint">Raw HTML block (usually created by "Import current page HTML"). Edit the markup directly — any image src can be replaced with a Media Library URL.</p>' +
         field("HTML", area("in-html", c.html, 14));
     }
+
+    /* Determine which tabs to show */
+    var showImageTab = s.type !== "footer";
+    var showElementTab = s.type !== "footer" && s.type !== "html" && s.type !== "spacer";
 
     box.innerHTML =
       '<div class="pb-inspector-head"><h4>' + esc((TYPES.find(t => t.id === s.type) || {}).label || s.type) + '</h4>' +
@@ -389,7 +506,8 @@ const EDC_PAGEBUILDER = (() => {
 
       '<div class="pb-tabs"><button class="pb-tab is-active" data-tab="content">Content</button>' +
       '<button class="pb-tab" data-tab="style">Design</button>' +
-      (s.type === "footer" ? "" : '<button class="pb-tab" data-tab="image">Image</button>') + '</div>' +
+      (showElementTab ? '<button class="pb-tab" data-tab="elements">Element Style</button>' : '') +
+      (showImageTab ? '<button class="pb-tab" data-tab="image">Image</button>' : '') + '</div>' +
 
       '<div class="pb-tabpane" data-pane="content">' + contentFields + '</div>' +
 
@@ -397,39 +515,57 @@ const EDC_PAGEBUILDER = (() => {
         field("Background colour", color("st-bg", st.background, "#ffffff")) +
         field("Text colour", color("st-color", st.color, "#0f172a")) +
         field("Background image URL", text("st-bgimg", st.backgroundImage)) +
-        field("Background overlay (0–1)", num("st-overlay", st.overlay, "0.35")) +
+        field("Background overlay (0\u20131)", num("st-overlay", st.overlay, "0.35")) +
         field("Vertical padding (px)", num("st-py", st.paddingY, "80")) +
         field("Horizontal padding (px)", num("st-px", st.paddingX)) +
         field("Content max width (px)", num("st-maxw", st.maxWidth, "1120")) +
         field("Minimum height (px)", num("st-minh", st.minHeight)) +
         field("Corner radius (px)", num("st-radius", st.radius)) +
-        field("Text alignment", select("st-align", ["left", "center", "right"], st.align || "left")) +
-        field("Block position", select("st-blockalign", ["center", "left", "right"], st.blockAlign || "center")) +
+        field("Text alignment", selectOpts("st-align", ["left", "center", "right"], st.align || "left")) +
+        field("Block position", selectOpts("st-blockalign", ["center", "left", "right"], st.blockAlign || "center")) +
         field("Grid columns", num("st-cols", st.columns, "3")) +
         field("Gap between items (px)", num("st-gap", st.gap, "24")) +
-        field("Button style", select("st-btn", ["btn-gold", "btn-primary", "btn-outline", "btn-ghost"], st.buttonVariant || "btn-gold")) +
-        '<label class="pb-check"><input type="checkbox" id="st-reverse" ' + (st.reverse ? "checked" : "") + '> Reverse image / text order</label>' +
+        field("Button style", selectOpts("st-btn", ["btn-gold", "btn-primary", "btn-outline", "btn-ghost"], st.buttonVariant || "btn-gold")) +
+        checkbox("st-reverse", st.reverse, "Reverse image / text order") +
       '</div>' +
 
-      (s.type === "footer" ? "" :
+      (showElementTab ?
+      '<div class="pb-tabpane" data-pane="elements" hidden>' +
+        elementStyleTab(s.type, st) +
+      '</div>' : '') +
+
+      (showImageTab ?
       '<div class="pb-tabpane" data-pane="image" hidden>' +
-        '<p class="pb-hint">Resize and place the image exactly where you want it.</p>' +
+        '<p class="pb-hint">Resize, shape, and place the image exactly where you want it.</p>' +
+        field("Image shape", selectOpts("im-shape", IMAGE_SHAPES.map(s => ({ value: s.id, label: s.label })), im.shape || "default")) +
         field("Width (px or %)", num("im-w", im.width, "e.g. 480 or 60%")) +
         field("Max width (px or %)", num("im-maxw", im.maxWidth, "100%")) +
         field("Height (px)", num("im-h", im.height, "auto")) +
-        field("Crop behaviour", select("im-fit", ["cover", "contain", "fill", "none", "scale-down"], im.fit || "cover")) +
-        field("Focal point", select("im-pos", ["center", "top", "bottom", "left", "right", "top left", "top right", "bottom left", "bottom right"], im.position || "center")) +
+        field("Crop behaviour", selectOpts("im-fit", ["cover", "contain", "fill", "none", "scale-down"], im.fit || "cover")) +
+        field("Focal point", selectOpts("im-pos", ["center", "top", "bottom", "left", "right", "top left", "top right", "bottom left", "bottom right"], im.position || "center")) +
         field("Corner radius (px)", num("im-radius", im.radius, "16")) +
-        field("Horizontal placement", select("im-align", ["left", "center", "right"], im.align || "center")) +
+        field("Horizontal placement", selectOpts("im-align", ["left", "center", "right"], im.align || "center")) +
         field("Space above (px)", num("im-mt", im.marginTop)) +
         field("Space below (px)", num("im-mb", im.marginBottom)) +
-        '<label class="pb-check"><input type="checkbox" id="im-shadow" ' + (im.shadow ? "checked" : "") + '> Drop shadow</label>' +
-      '</div>');
+        checkbox("im-shadow", im.shadow, "Drop shadow") +
+      '</div>' : '');
 
     box.querySelectorAll(".pb-tab").forEach(function (tab) {
       tab.onclick = function () {
         box.querySelectorAll(".pb-tab").forEach(t => t.classList.toggle("is-active", t === tab));
         box.querySelectorAll(".pb-tabpane").forEach(p => { p.hidden = p.dataset.pane !== tab.dataset.tab; });
+      };
+    });
+
+    /* Element reset buttons */
+    box.querySelectorAll(".pb-elem-reset").forEach(function (btn) {
+      btn.onclick = function () {
+        var ek = btn.dataset.elem;
+        box.querySelectorAll('[data-elem="' + ek + '"] .pb-input, [data-elem="' + ek + '"] .pb-check input').forEach(function (inp) {
+          if (inp.type === "checkbox") inp.checked = false;
+          else if (inp.tagName === "SELECT") inp.selectedIndex = 0;
+          else inp.value = "";
+        });
       };
     });
 
@@ -463,6 +599,52 @@ const EDC_PAGEBUILDER = (() => {
   function val(id) { const el = root.querySelector("#" + id); return el ? el.value.trim() : ""; }
   function checked(id) { const el = root.querySelector("#" + id); return !!(el && el.checked); }
   function maybe(obj, key, v) { if (v !== "" && v !== undefined && v !== null) obj[key] = v; }
+
+  /* ---- collect per-element styles from the inspector ---- */
+  function collectElementStyles(type) {
+    const elems = elementsForType(type);
+    const result = {};
+    elems.forEach(function (ek) {
+      const e = {};
+      const fam = val("es-font-" + ek);
+      if (fam && fam !== "inherit") e.fontFamily = fam;
+      const size = val("es-size-" + ek);
+      if (size) e.fontSize = size;
+      const w = val("es-weight-" + ek);
+      if (w && w !== "inherit") e.fontWeight = w;
+      const col = val("es-color-" + ek);
+      if (col) e.color = col;
+      const bg = val("es-bg-" + ek);
+      if (bg && bg !== "transparent" && bg !== "#000000") e.backgroundColor = bg;
+      const al = val("es-align-" + ek);
+      if (al && al !== "inherit") e.textAlign = al;
+      const tt = val("es-transform-" + ek);
+      if (tt && tt !== "inherit") e.textTransform = tt;
+      if (checked("es-bold-" + ek)) e.bold = true;
+      if (checked("es-italic-" + ek)) e.italic = true;
+      if (checked("es-underline-" + ek)) e.underline = true;
+      const lh = val("es-lh-" + ek);
+      if (lh) e.lineHeight = lh;
+      const ls = val("es-ls-" + ek);
+      if (ls) e.letterSpacing = ls;
+      const mt = val("es-mt-" + ek);
+      if (mt) e.marginTop = mt;
+      const mb = val("es-mb-" + ek);
+      if (mb) e.marginBottom = mb;
+      const pt = val("es-pt-" + ek);
+      if (pt) e.paddingTop = pt;
+      const pb = val("es-pb-" + ek);
+      if (pb) e.paddingBottom = pb;
+      const pl = val("es-pl-" + ek);
+      if (pl) e.paddingLeft = pl;
+      const pr = val("es-pr-" + ek);
+      if (pr) e.paddingRight = pr;
+      const br = val("es-radius-" + ek);
+      if (br) e.borderRadius = br;
+      if (Object.keys(e).length) result[ek] = e;
+    });
+    return result;
+  }
 
   async function saveSection(s) {
     const content = {};
@@ -526,8 +708,16 @@ const EDC_PAGEBUILDER = (() => {
     if ((val("in-type") || s.type) === "html") style.allowHtml = true;
     if (parse(s.style_json).imported) style.imported = true;
 
+    /* Per-element styles */
+    const newType = val("in-type") || s.type;
+    if (newType !== "footer" && newType !== "html" && newType !== "spacer") {
+      const elements = collectElementStyles(newType);
+      if (Object.keys(elements).length) style.elements = elements;
+    }
+
     if (s.type !== "footer") {
       const image = {};
+      maybe(image, "shape", val("im-shape"));
       maybe(image, "width", val("im-w"));
       maybe(image, "maxWidth", val("im-maxw"));
       maybe(image, "height", val("im-h"));

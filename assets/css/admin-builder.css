@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ADMIN-BUILDER.CSS — FIXED FILE
+   ADMIN-BUILDER.CSS — ENHANCED FILE (v3)
    Styling for the page builder and the accounts/roles manager.
    Add to admin.html:  <link rel="stylesheet" href="assets/css/admin-builder.css">
    Uses neutral tokens so it sits inside your existing navy/gold theme.
@@ -7,6 +7,8 @@
    FIX: .pb-preview-overlay and .ua-modal now respect the [hidden] attribute
    by using display:flex !important only when NOT hidden, and display:none
    when hidden. This prevents the overlay/modal from being stuck open.
+
+   NEW in v3: Per-element style controls (.pb-elem-group, .pb-field-row)
    ========================================================================== */
 
 :root {
@@ -53,7 +55,7 @@
 
 /* ---------- builder layout ---------- */
 .pb {
-  display: grid; grid-template-columns: 270px minmax(0, 1fr) 330px; gap: 16px;
+  display: grid; grid-template-columns: 270px minmax(0, 1fr) 340px; gap: 16px;
   align-items: start; min-height: 620px;
 }
 @media (max-width: 1200px) { .pb { grid-template-columns: 1fr; } }
@@ -101,12 +103,28 @@
 .pb-inspector { padding: 14px; position: sticky; top: 16px; max-height: calc(100vh - 60px); overflow: auto; }
 .pb-inspector-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .pb-inspector-head h4 { margin: 0; font-size: 14px; }
-.pb-tabs { display: flex; gap: 4px; margin-bottom: 14px; background: #eef2f7; padding: 4px; border-radius: 10px; }
-.pb-tab { flex: 1; border: 0; background: transparent; padding: 7px; border-radius: 7px; font: 600 12.5px inherit; cursor: pointer; color: var(--pb-muted); }
+.pb-tabs { display: flex; gap: 4px; margin-bottom: 14px; background: #eef2f7; padding: 4px; border-radius: 10px; flex-wrap: wrap; }
+.pb-tab { flex: 1; min-width: 70px; border: 0; background: transparent; padding: 7px; border-radius: 7px; font: 600 12px inherit; cursor: pointer; color: var(--pb-muted); text-align: center; }
 .pb-tab.is-active { background: #fff; color: var(--pb-text); box-shadow: 0 1px 3px rgba(15,39,64,.12); }
 
+/* ---------- per-element style controls (NEW v3) ---------- */
+.pb-elem-group {
+  border: 1px solid var(--pb-line); border-radius: 10px; padding: 14px;
+  margin-bottom: 14px; background: #fafbfd;
+}
+.pb-elem-head {
+  font-size: 13px; font-weight: 700; color: var(--pb-navy); margin-bottom: 12px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--pb-line);
+}
+.pb-field-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;
+}
+.pb-field-row .pb-field { margin-bottom: 0; }
+.pb-field-row .pb-check { margin: 0; }
+@media (max-width: 480px) { .pb-field-row { grid-template-columns: 1fr; } }
+.pb-elem-reset { margin-top: 4px; color: var(--pb-muted); }
+
 /* ---------- overlays / preview ---------- */
-/* FIX: Respect the [hidden] attribute so overlays/modals can actually close. */
 .pb-preview-overlay[hidden],
 .ua-modal-overlay[hidden] {
   display: none !important;
@@ -159,6 +177,11 @@
 .pb-footer-group {
   border: 1px solid var(--pb-line); border-radius: 10px; padding: 12px;
   margin-bottom: 12px; background: #fafbfd;
+}
+
+/* ---------- grid item editor ---------- */
+.pb-grid-item {
+  border: 1px solid var(--pb-line); border-radius: 10px; padding: 10px; margin-bottom: 10px;
 }
 
 /* ---------- public-page debug panel ---------- */

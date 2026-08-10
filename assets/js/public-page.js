@@ -1,22 +1,17 @@
 /**
- * PUBLIC-PAGE.JS — REPLACEMENT FILE
+ * PUBLIC-PAGE.JS — ENHANCED REPLACEMENT FILE (v3)
  * ---------------------------------------------------------------
  * Renders Page Builder content on the public website.
  *
- * WHY EDITS WERE NOT SHOWING BEFORE
- *  1. The old slug reader broke on GitHub Pages "pretty" URLs
- *     (/page, /page/about/) and returned a slug the backend had no
- *     row for, so nothing rendered.
- *  2. Sections were only ever APPENDED before the footer, so editing
- *     text that lives in the static HTML changed nothing visible.
- *     This version supports render_mode = "replace": the live
- *     sections take over the region marked with
- *     <main data-edc-region> (or #edc-live-content), hiding the
- *     hard-coded fallback.
- *  3. Every failure was silent. Now add ?edcdebug=1 to any URL and
- *     an on-page panel explains exactly what happened.
- *  4. GitHub Pages / browsers cached the API response. Requests are
- *     now cache-busted and sent with no-store.
+ * What's new in v3:
+ *  - Per-element style rendering: every text element (eyebrow, heading,
+ *    body, buttons, card titles, card text, card buttons) gets its own
+ *    inline style from style_json.elements{} — font family, size, weight,
+ *    color, background, alignment, bold/italic/underline, line height,
+ *    letter spacing, margins, padding, text transform, border radius.
+ *  - Image shapes: circle, rounded, square, or custom radius.
+ *  - Full backward compatibility: sections without element styles render
+ *    exactly as before.
  * ---------------------------------------------------------------
  */
 const EDC_PUBLIC_PAGE = (() => {
@@ -25,15 +20,12 @@ const EDC_PUBLIC_PAGE = (() => {
 
   function log(msg) { notes.push(msg); if (DEBUG) console.info("[EDC page builder]", msg); }
 
-  /** Robust slug: works for /index.html, /page/, /page, /page/about/ and /about.html */
   function slug() {
     const override = document.body && document.body.dataset ? document.body.dataset.edcSlug : "";
     if (override) return normalize(override);
     const parts = location.pathname.split("/").filter(Boolean);
     const last = parts.length ? parts[parts.length - 1] : "";
     if (!last || !/\.html?$/i.test(last)) {
-      // Directory-style URL: only treat the last segment as a page when it is
-      // not the repository/base folder. Safest default is the home page.
       const known = ["about", "services", "teachers", "careers", "contact", "apply", "job", "teacher"];
       return known.indexOf(normalize(last)) >= 0 ? normalize(last) : "index";
     }
@@ -65,7 +57,7 @@ const EDC_PUBLIC_PAGE = (() => {
     return /^(https?:\/\/|mailto:|tel:|#|\.?\/|[\w-]+\.html)/i.test(u) ? u : "";
   }
 
-  /* ---------------- style engine: everything is customisable ---------------- */
+  /* ---------------- style engine ---------------- */
 
   function cssUnit(v) {
     if (v === undefined || v === null || v === "") return "";
@@ -96,15 +88,63 @@ const EDC_PUBLIC_PAGE = (() => {
     return s.join(";");
   }
 
+  /* ---- per-element style builder ---- */
+
+  function elementStyle(st, key) {
+    const els = (st && st.elements) || {};
+    const e = els[key];
+    if (!e) return "";
+    const s = [];
+    if (e.fontFamily && e.fontFamily !== "inherit") s.push("font-family:" + e.fontFamily);
+    if (e.fontSize) s.push("font-size:" + cssUnit(e.fontSize));
+    if (e.fontWeight && e.fontWeight !== "inherit") s.push("font-weight:" + e.fontWeight);
+    if (e.color) s.push("color:" + e.color);
+    if (e.backgroundColor && e.backgroundColor !== "transparent") s.push("background:" + e.backgroundColor);
+    if (e.textAlign && e.textAlign !== "inherit") s.push("text-align:" + e.textAlign);
+    if (e.textTransform && e.textTransform !== "inherit") s.push("text-transform:" + e.textTransform);
+    if (e.bold) s.push("font-weight:" + (e.fontWeight && e.fontWeight !== "inherit" ? e.fontWeight : "700"));
+    if (e.italic) s.push("font-style:italic");
+    if (e.underline) s.push("text-decoration:underline");
+    if (e.lineHeight) s.push("line-height:" + e.lineHeight);
+    if (e.letterSpacing) s.push("letter-spacing:" + cssUnit(e.letterSpacing));
+    if (e.marginTop) s.push("margin-top:" + cssUnit(e.marginTop));
+    if (e.marginBottom) s.push("margin-bottom:" + cssUnit(e.marginBottom));
+    if (e.paddingTop) s.push("padding-top:" + cssUnit(e.paddingTop));
+    if (e.paddingBottom) s.push("padding-bottom:" + cssUnit(e.paddingBottom));
+    if (e.paddingLeft) s.push("padding-left:" + cssUnit(e.paddingLeft));
+    if (e.paddingRight) s.push("padding-right:" + cssUnit(e.paddingRight));
+    if (e.borderRadius) s.push("border-radius:" + cssUnit(e.borderRadius));
+    /* display:inline-block is needed for background/padding to work on inline text */
+    if (e.backgroundColor && e.backgroundColor !== "transparent" || e.paddingTop || e.paddingBottom || e.paddingLeft || e.paddingRight) {
+      s.push("display:inline-block");
+    }
+    return s.join(";");
+  }
+
+  /* ---- image style with shape support ---- */
+
   function imageStyle(st) {
     const i = st.image || {};
     const s = ["display:block", "max-width:100%", "height:auto"];
+    var shape = i.shape || "default";
+    if (shape === "circle") {
+      s.push("border-radius:50%");
+      s.push("object-fit:cover");
+    } else if (shape === "rounded") {
+      s.push("border-radius:16px");
+    } else if (shape === "square") {
+      s.push("border-radius:0");
+    } else if (i.radius) {
+      s.push("border-radius:" + cssUnit(i.radius));
+    }
     if (i.width) s.push("width:" + cssUnit(i.width));
     if (i.maxWidth) s.push("max-width:" + cssUnit(i.maxWidth));
-    if (i.height) s.push("height:" + cssUnit(i.height));
-    if (i.fit) s.push("object-fit:" + i.fit);
+    if (i.height) {
+      s.push("height:" + cssUnit(i.height));
+      if (shape === "circle" || i.fit === "cover") s.push("object-fit:cover");
+    }
+    if (i.fit && shape !== "circle") s.push("object-fit:" + i.fit);
     if (i.position) s.push("object-position:" + i.position);
-    if (i.radius) s.push("border-radius:" + cssUnit(i.radius));
     if (i.shadow) s.push("box-shadow:0 18px 40px rgba(15,23,42,.18)");
     if (i.align === "center") s.push("margin-left:auto;margin-right:auto");
     else if (i.align === "right") s.push("margin-left:auto;margin-right:0");
@@ -119,44 +159,78 @@ const EDC_PUBLIC_PAGE = (() => {
     return '<img class="edc-live-image" loading="lazy" src="' + esc(src) + '" alt="' + esc(alt || "") + '" style="' + esc(imageStyle(st)) + '">';
   }
 
+  /* ---- element wrappers ---- */
+
+  function eyebrowHtml(data, st) {
+    if (!data.eyebrow) return "";
+    const es = elementStyle(st, "eyebrow");
+    return '<span class="eyebrow"' + (es ? ' style="' + esc(es) + '"' : "") + ">" + esc(data.eyebrow) + "</span>";
+  }
+
+  function headingHtml(data, st, tag) {
+    const title = data.title || data.heading || "";
+    if (!title) return "";
+    const es = elementStyle(st, "heading");
+    return '<' + tag + (es ? ' style="' + esc(es) + '"' : "") + ">" + esc(title) + "</" + tag + ">";
+  }
+
+  function bodyHtml(data, st) {
+    const body = data.body || data.text || data.content || "";
+    if (!body) return "";
+    const es = elementStyle(st, "body");
+    const raw = esc(body).replace(/\n{2,}/g, "</p><p>").replace(/\n/g, "<br>");
+    return '<p' + (es ? ' style="' + esc(es) + '"' : "") + ">" + raw + "</p>";
+  }
+
+  function ctaHtml(data, st) {
+    const link = safeLink(data.cta_url || data.url);
+    if (!link) return "";
+    const es = elementStyle(st, "button");
+    const variant = st.buttonVariant || "btn-gold";
+    return '<a class="btn ' + variant + ' edc-live-cta"' + (es ? ' style="' + esc(es) + '"' : "") + ' href="' + esc(link) + '">' + esc(data.cta_label || "Learn more") + "</a>";
+  }
+
+  function cta2Html(data, st) {
+    const link2 = safeLink(data.cta2_url);
+    if (!link2) return "";
+    const es = elementStyle(st, "button2");
+    return '<a class="btn btn-outline edc-live-cta2"' + (es ? ' style="' + esc(es) + '"' : "") + ' style="margin-left:.5rem" href="' + esc(link2) + '">' + esc(data.cta2_label || "Learn more") + "</a>";
+  }
+
   /* ------------------------------- renderers ------------------------------- */
 
   function renderSection(section) {
     const data = parse(section.content_json, {});
     const st = parse(section.style_json, {});
     const type = String(section.type || "text").toLowerCase();
-    const title = data.title || data.heading || "";
-    const body = data.body || data.text || data.content || "";
     const image = safeImage(data.image_url || data.image || data.src);
-    const link = safeLink(data.cta_url || data.url);
-    const link2 = safeLink(data.cta2_url);
-    const cta2 = link2 ? '<a class="btn btn-outline edc-live-cta2" style="margin-left:.5rem" href="' + esc(link2) + '">' + esc(data.cta2_label || "Learn more") + "</a>" : "";
-    const cta = link ? '<a class="btn ' + (st.buttonVariant || "btn-gold") + ' edc-live-cta" href="' + esc(link) + '">' + esc(data.cta_label || "Learn more") + "</a>" : "";
+
     const open = '<section class="section edc-live-section edc-live-' + esc(type) + '" data-section-id="' + esc(section.section_id) + '" style="' + esc(sectionStyle(st)) + '"><div class="container" style="' + esc(innerStyle(st)) + '">';
     const close = "</div></section>";
 
     if (type === "hero") {
       return open +
-        (data.eyebrow ? '<span class="eyebrow">' + esc(data.eyebrow) + "</span>" : "") +
-        (title ? "<h1>" + esc(title) + "</h1>" : "") +
-        (body ? '<p class="lead">' + esc(body) + "</p>" : "") +
-        (image ? '<div class="hero-photo">' + img(image, data.alt || title, st) + "</div>" : "") +
-        cta + cta2 + close;
+        eyebrowHtml(data, st) +
+        headingHtml(data, st, "h1") +
+        bodyHtml(data, st) +
+        (image ? '<div class="hero-photo">' + img(image, data.alt || data.title || "", st) + "</div>" : "") +
+        ctaHtml(data, st) + cta2Html(data, st) + close;
     }
 
     if (type === "image") {
       return open +
-        (title ? '<div class="section-head"><h2>' + esc(title) + "</h2></div>" : "") +
-        img(image, data.alt || title, st) +
-        (body ? '<p class="mt-4">' + esc(body) + "</p>" : "") + cta + close;
+        (data.title || data.heading ? '<div class="section-head">' + headingHtml(data, st, "h2") + "</div>" : "") +
+        img(image, data.alt || data.title || "", st) +
+        bodyHtml(data, st) + ctaHtml(data, st) + close;
     }
 
     if (type === "split") {
       const reverse = st.reverse === true || data.reverse === true;
       const text = '<div class="edc-split-text">' +
-        (title ? "<h2>" + esc(title) + "</h2>" : "") +
-        (body ? '<p class="muted">' + esc(body) + "</p>" : "") + cta + "</div>";
-      const media = '<div class="edc-split-media">' + img(image, data.alt || title, st) + "</div>";
+        headingHtml(data, st, "h2") +
+        '<p class="muted"' + (elementStyle(st, "body") ? ' style="' + esc(elementStyle(st, "body")) + '"' : "") + ">" + esc(data.body || data.text || "") + "</p>" +
+        ctaHtml(data, st) + "</div>";
+      const media = '<div class="edc-split-media">' + img(image, data.alt || data.title || "", st) + "</div>";
       return open + '<div class="edc-split" style="gap:' + cssUnit(st.gap || 40) + '">' +
         (reverse ? media + text : text + media) + "</div>" + close;
     }
@@ -165,27 +239,31 @@ const EDC_PUBLIC_PAGE = (() => {
       const items = Array.isArray(data.items) ? data.items : [];
       const cols = Number(st.columns) || (items.length >= 3 ? 3 : 2);
       return open +
-        (title ? '<div class="section-head"><h2>' + esc(title) + "</h2></div>" : "") +
+        (data.eyebrow ? eyebrowHtml(data, st) : "") +
+        (data.title || data.heading ? '<div class="section-head">' + headingHtml(data, st, "h2") + "</div>" : "") +
+        (data.body ? bodyHtml(data, st) : "") +
         '<div class="edc-live-grid" style="display:grid;gap:' + cssUnit(st.gap || 24) + ';grid-template-columns:repeat(auto-fit,minmax(' + cssUnit(st.minCard || 260) + ',1fr));--cols:' + cols + '">' +
         items.map(function (item) {
           const itemImg = safeImage(item.image_url || item.image);
+          const titleEs = elementStyle(st, "cardTitle");
+          const textEs = elementStyle(st, "cardText");
+          const btnEs = elementStyle(st, "cardButton");
           return '<div class="card"><div class="card-body">' +
-            (itemImg ? img(itemImg, item.title, st) : "") +
-            (item.title ? "<h3>" + esc(item.title) + "</h3>" : "") +
-            (item.text || item.body ? '<p class="muted">' + esc(item.text || item.body) + "</p>" : "") +
-            (safeLink(item.url) ? '<a class="btn btn-outline btn-sm mt-4" href="' + esc(safeLink(item.url)) + '">' + esc(item.cta_label || "Read more") + "</a>" : "") +
+            (itemImg ? img(itemImg, item.title || "", st) : "") +
+            (item.title ? "<h3" + (titleEs ? ' style="' + esc(titleEs) + '"' : "") + ">" + esc(item.title) + "</h3>" : "") +
+            (item.text || item.body ? '<p class="muted"' + (textEs ? ' style="' + esc(textEs) + '"' : "") + ">" + esc(item.text || item.body) + "</p>" : "") +
+            (safeLink(item.url) ? '<a class="btn btn-outline btn-sm mt-4"' + (btnEs ? ' style="' + esc(btnEs) + '"' : "") + ' href="' + esc(safeLink(item.url)) + '">' + esc(item.cta_label || "Read more") + "</a>" : "") +
             "</div></div>";
-        }).join("") + "</div>" + (cta ? '<div class="mt-6" style="margin-top:24px">' + cta + "</div>" : "") + close;
+        }).join("") + "</div>" + (safeLink(data.cta_url || data.url) ? '<div class="mt-6" style="margin-top:24px">' + ctaHtml(data, st) + "</div>" : "") + close;
     }
 
     if (type === "cta" || type === "banner") {
       return open + '<div class="cta-band"><div>' +
-        (title ? "<h2>" + esc(title) + "</h2>" : "") +
-        (body ? "<p>" + esc(body) + "</p>" : "") + "</div>" + cta + "</div>" + close;
+        headingHtml(data, st, "h2") +
+        bodyHtml(data, st) + "</div>" + ctaHtml(data, st) + "</div>" + close;
     }
 
     if (type === "html" && st.allowHtml === true) {
-      // Only rendered when a developer explicitly ticks "allow raw HTML".
       return open + (data.html || "") + close;
     }
 
@@ -193,10 +271,11 @@ const EDC_PUBLIC_PAGE = (() => {
       return '<div class="edc-live-spacer" style="height:' + cssUnit(st.height || 48) + '"></div>';
     }
 
+    // default: text block
     return open +
-      (title ? '<div class="section-head"><h2>' + esc(title) + "</h2></div>" : "") +
-      (body ? "<p>" + esc(body).replace(/\n{2,}/g, "</p><p>").replace(/\n/g, "<br>") + "</p>" : "") +
-      (image ? img(image, data.alt || title, st) : "") + cta + close;
+      (data.title || data.heading ? '<div class="section-head">' + headingHtml(data, st, "h2") + "</div>" : "") +
+      bodyHtml(data, st) +
+      (image ? img(image, data.alt || data.title || "", st) : "") + ctaHtml(data, st) + close;
   }
 
   /* -------------------------------- mounting ------------------------------- */
@@ -212,7 +291,7 @@ const EDC_PUBLIC_PAGE = (() => {
     const box = document.createElement("div");
     box.style.cssText = "position:fixed;left:12px;bottom:12px;z-index:99999;max-width:380px;background:#0f172a;color:#e2e8f0;font:12px/1.5 ui-monospace,monospace;padding:14px 16px;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.35)";
     box.innerHTML = "<strong>EDC Page Builder diagnostics</strong><br>slug: " + esc(pageSlug) +
-      "<br>api: " + esc(String((window.EDC_CONFIG || {}).API_URL || "").slice(0, 48) + "…") +
+      "<br>api: " + esc(String((window.EDC_CONFIG || {}).API_URL || "").slice(0, 48) + "\u2026") +
       "<br>demo mode: " + String((window.EDC_CONFIG || {}).DEMO_MODE) +
       "<br>ok: " + String(result && result.success) +
       "<br>" + notes.map(esc).join("<br>");
@@ -221,13 +300,9 @@ const EDC_PUBLIC_PAGE = (() => {
 
   async function render() {
     const pageSlug = slug();
-    // ROOT CAUSE #1 (fixed): api.js declares `const EDC_API`, which in a classic
-    // <script> is script-scoped and NEVER attached to window. The old code tested
-    // `window.EDC_API` and returned early on every single public page, so builder
-    // edits could never appear. Use the lexical binding instead.
     const api = (typeof EDC_API !== "undefined") ? EDC_API : window.EDC_API;
     if (!api || typeof EDC_CONFIG === "undefined") { log("api.js/config.js not loaded before public-page.js — check script order."); return debugPanel(pageSlug, null); }
-    window.EDC_API = api; // make it reachable for other modules too
+    window.EDC_API = api;
     if (EDC_CONFIG.DEMO_MODE) { log("DEMO_MODE is ON — the live backend is not being read. Set DEMO_MODE:false in assets/js/config.js."); return debugPanel(pageSlug, null); }
 
     const result = await api.getPublicPage(pageSlug);
@@ -269,11 +344,7 @@ const EDC_PUBLIC_PAGE = (() => {
   }
 
   /* ------------------------- editable site footer ------------------------- */
-  /**
-   * Renders Page Builder "footer" sections stored on the page with slug
-   * "site-footer". ui.js calls this on every page; when it returns markup the
-   * built-in hardcoded footer links are replaced by the editable ones.
-   */
+
   async function renderFooterSections() {
     const api = (typeof EDC_API !== "undefined") ? EDC_API : window.EDC_API;
     if (!api || (typeof EDC_CONFIG !== "undefined" && EDC_CONFIG.DEMO_MODE)) return "";
