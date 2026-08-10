@@ -98,38 +98,73 @@
 
       if (String(slug).toLowerCase() === "index") {
         // The homepage is a composite (Homepage Layout hero + sheet-based blocks).
-        // Import those as editable Page Builder sections so the homepage is fully editable here.
+        // Import them as editable sections. The public renderer only knows image/hero/
+        // text/gallery/html, so the blocks become "html" sections that reuse the site's
+        // own CSS classes (so they look identical to the live homepage) and the hero
+        // becomes a typed "hero" section so its photo is editable via the image picker.
         const settings = (await api.getSiteSettings()).data || {};
         const hero = settings.hero || {};
         const photos = Array.isArray(hero.photos) ? hero.photos : [];
         const ph = photos[0] || {};
+
+        // Hero — typed; photo editable via the image picker (image_url field).
         await add("hero", {
-          eyebrow: hero.eyebrow || "", title: hero.title || "", body: hero.subtitle || "",
-          image_url: ph.url || "", alt: ph.alt || "",
-          cta_label: hero.cta_primary_label || "", cta_url: hero.cta_primary_url || ""
+          title: hero.title || "",
+          subtitle: hero.subtitle || "",
+          image_url: ph.url || "",
+          cta_label: hero.cta_primary_label || "",
+          cta_url: hero.cta_primary_url || ""
         }, { allowHtml: false });
 
+        // Services cards
         const services = (await api.getServices()).data || [];
-        if (services.length) await add("grid", {
-          title: "Why Schools & Teachers Choose EDC",
-          items: services.map(s => ({ title: s.title, text: s.short, image_url: "" }))
-        }, { columns: 4 });
+        if (services.length) {
+          const cards = services.map(s =>
+            '<div class="card"><div class="card-body">' +
+            (s.icon ? '<div style="font-size:1.8rem;margin-bottom:.75rem;">' + esc(s.icon) + '</div>' : '') +
+            '<h3>' + esc(s.title || "") + '</h3>' +
+            (s.short ? '<p class="muted" style="font-size:.9rem;">' + esc(s.short) + '</p>' : '') +
+            '</div></div>'
+          ).join("");
+          await add("html", { html: '<section class="section"><div class="container"><div class="section-head center"><span class="eyebrow">Why Schools &amp; Teachers Choose EDC</span><h2>A recruitment partner that handles the details.</h2></div><div class="grid grid-4">' + cards + '</div></div></section>' }, { allowHtml: true, padding: "0" });
+        }
 
+        // Teacher cards
         const teachers = (await api.getTeachers({ featuredOnly: true })).data || [];
-        if (teachers.length) await add("grid", {
-          title: "Teaching Opportunities",
-          items: teachers.map(t => ({ title: t.name, text: t.position, image_url: t.photo, url: "teacher.html?id=" + t.id }))
-        }, { columns: 3 });
+        if (teachers.length) {
+          const cards = teachers.map(t => {
+            const subs = (Array.isArray(t.subjects) ? t.subjects : []).slice(0, 2).map(s => '<span class="pill">' + esc(s) + '</span>').join("");
+            return '<a href="teacher.html?id=' + esc(t.id) + '" class="card teacher-card">' +
+              '<div class="card-media"><img src="' + esc(t.photo || "") + '" alt="' + esc(t.name || "") + '"></div>' +
+              '<div class="card-body"><h3>' + esc(t.name || "") + '</h3>' +
+              (t.position ? '<div class="role">' + esc(t.position) + '</div>' : '') +
+              (subs ? '<div class="subjects">' + subs + '</div>' : '') +
+              '</div></a>';
+          }).join("");
+          await add("html", { html: '<section class="section"><div class="container"><div class="grid grid-3">' + cards + '</div></div></section>' }, { allowHtml: true, padding: "0" });
+        }
 
+        // CTA band (footer_cta)
         const fcta = settings.footer_cta || {};
-        await add("cta", { title: fcta.text || "", body: "", cta_label: fcta.button_label || "", cta_url: fcta.button_url || "" });
+        await add("html", { html:
+          '<section class="section"><div class="container"><div style="background:' + esc(fcta.background || "#0f172a") + ';color:' + esc(fcta.color || "#ffffff") + ';padding:48px 24px;border-radius:14px;text-align:center;' + (fcta.font ? 'font-family:' + esc(fcta.font) + ';' : '') + (fcta.font_size ? 'font-size:' + esc(fcta.font_size) + 'px;' : '') + '">' +
+          (fcta.text ? '<p style="font-size:1.2rem;margin:0 0 1rem;">' + esc(fcta.text) + '</p>' : '') +
+          (fcta.button_label ? '<a href="' + esc(fcta.button_url || "#") + '" class="btn btn-gold">' + esc(fcta.button_label) + '</a>' : '') +
+          '</div></div></section>' }, { allowHtml: true, padding: "0" });
 
+        // Testimonials
         try {
           const tm = (await api.getTestimonials()).data || [];
-          if (tm.length) await add("grid", {
-            title: "Testimonials",
-            items: tm.map(x => ({ title: x.name || "", text: x.quote || "", image_url: x.photo || "" }))
-          }, { columns: 3 });
+          if (tm.length) {
+            const cards = tm.map(x =>
+              '<div class="card"><div class="card-body">' +
+              (x.quote ? '<p class="muted">' + esc(x.quote) + '</p>' : '') +
+              (x.name ? '<div style="margin-top:.75rem;font-weight:600;">' + esc(x.name) + '</div>' : '') +
+              (x.role ? '<div class="role">' + esc(x.role) + '</div>' : '') +
+              '</div></div>'
+            ).join("");
+            await add("html", { html: '<section class="section"><div class="container"><div class="section-head center"><span class="eyebrow">Testimonials</span><h2>What schools and teachers say.</h2></div><div class="grid grid-3">' + cards + '</div></div></section>' }, { allowHtml: true, padding: "0" });
+          }
         } catch (e) {}
       } else {
         const url = "./" + slug + ".html";
