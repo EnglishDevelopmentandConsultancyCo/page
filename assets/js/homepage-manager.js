@@ -101,48 +101,52 @@ const EDC_HOMEPAGE = (() => {
   /* ===================== PUBLIC RENDER ===================== */
 
   async function render() {
-    const result = await EDC_API.getSiteSettings();
-    const settings = result.data || {};
-    const sections = getSections(settings);
-    const hero = getHero(settings);
-    const target = document.querySelector("[data-edc-region]") || document.getElementById("edc-live-content") || document.querySelector("main");
+  const result = await EDC_API.getSiteSettings();
+  const settings = result.data || {};
+  const target = document.querySelector("[data-edc-region]") || document.getElementById("edc-live-content") || document.querySelector("main");
+  if (!target) return;
 
-    if (!target) return;
-
-    const htmlParts = [];
-    for (const section of sections) {
-      if (!section.visible) continue;
-      switch (section.id) {
-        case "hero": htmlParts.push(renderHero(hero)); break;
-        case "pagebuilder": htmlParts.push('<div id="pagebuilder-slot"></div>'); break;
-        case "services": htmlParts.push(await renderServices()); break;
-        case "teachers": htmlParts.push(await renderTeachers()); break;
-        case "cta": htmlParts.push(await renderCTA(settings)); break;
-        case "testimonials": htmlParts.push(await renderTestimonials()); break;
-      }
+  // If the Page Builder owns the homepage (published "index" sections), render those and skip the composite.
+  let pbSections = [];
+  try {
+    const pbResult = await EDC_API.getPublicPage("index");
+    if (pbResult && pbResult.success) {
+      pbSections = (pbResult.data.sections || []).filter(function (s) { return String(s.visible).toLowerCase() !== "false"; });
     }
+  } catch (e) {}
 
-    target.innerHTML = htmlParts.join("\n");
+  if (pbSections.length) {
+    const renderSection = (typeof EDC_PUBLIC_PAGE !== "undefined" && EDC_PUBLIC_PAGE.renderSection)
+      ? EDC_PUBLIC_PAGE.renderSection
+      : (typeof EDC_PAGEBUILDER !== "undefined" && EDC_PAGEBUILDER.renderSection ? EDC_PAGEBUILDER.renderSection : null);
+    target.innerHTML = pbSections.map(function (s) { return renderSection ? renderSection(s) : ""; }).join("\n");
     target.setAttribute("data-edc-region", "");
+    return;
+  }
 
-    if (hero.slideshow_enabled && hero.photos.length > 1) {
-      initSlideshow(hero);
-    }
-
-    if (document.getElementById("pagebuilder-slot")) {
-      const pbResult = await EDC_API.getPublicPage("index");
-      if (pbResult.success) {
-        const pbSections = (pbResult.data.sections || []).filter(s => String(s.visible).toLowerCase() !== "false");
-        const pbHtml = pbSections.map(s => {
-          if (typeof EDC_PUBLIC_PAGE !== "undefined" && EDC_PUBLIC_PAGE.renderSection) return EDC_PUBLIC_PAGE.renderSection(s);
-          if (typeof EDC_PAGEBUILDER !== "undefined" && EDC_PAGEBUILDER.renderSection) return EDC_PAGEBUILDER.renderSection(s);
-          return "";
-        }).join("");
-        const slot = document.getElementById("pagebuilder-slot");
-        if (slot) slot.innerHTML = pbHtml;
-      }
+  // No Page Builder content yet — render the Homepage Layout composite as before.
+  const sections = getSections(settings);
+  const hero = getHero(settings);
+  const htmlParts = [];
+  for (const section of sections) {
+    if (!section.visible) continue;
+    switch (section.id) {
+      case "hero": htmlParts.push(renderHero(hero)); break;
+      case "pagebuilder": htmlParts.push('<div id="pagebuilder-slot"></div>'); break;
+      case "services": htmlParts.push(await renderServices()); break;
+      case "teachers": htmlParts.push(await renderTeachers()); break;
+      case "cta": htmlParts.push(await renderCTA(settings)); break;
+      case "testimonials": htmlParts.push(await renderTestimonials()); break;
     }
   }
+
+  target.innerHTML = htmlParts.join("\n");
+  target.setAttribute("data-edc-region", "");
+
+  if (hero.slideshow_enabled && hero.photos.length > 1) {
+    initSlideshow(hero);
+  }
+}
 
   function renderHero(hero) {
     const photos = Array.isArray(hero.photos) && hero.photos.length ? hero.photos : [{ url: "", alt: "" }];
