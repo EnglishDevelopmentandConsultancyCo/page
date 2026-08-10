@@ -361,7 +361,7 @@ const EDC_HOMEPAGE = (() => {
       '<div class="hp-photo-row" data-index="' + i + '">' +
         '<div class="hp-photo-preview">' + (p.url ? '<img src="' + esc(p.url) + '" alt="' + esc(p.alt) + '">' : '<span class="hp-hint">No image</span>') + '</div>' +
         '<div class="hp-photo-fields">' +
-          '<input class="input hp-photo-url" data-index="' + i + '" placeholder="Image URL" value="' + esc(p.url) + '">' +
+          '<input class="input hp-photo-url" data-edc-image-field data-index="' + i + '" placeholder="Image URL" value="' + esc(p.url) + '">' +
           '<input class="input hp-photo-alt" data-index="' + i + '" placeholder="Alt text" value="' + esc(p.alt) + '">' +
         '</div>' +
         '<button class="btn btn-outline btn-sm hp-photo-up" data-index="' + i + '">↑</button>' +

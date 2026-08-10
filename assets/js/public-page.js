@@ -129,6 +129,8 @@ const EDC_PUBLIC_PAGE = (() => {
     const body = data.body || data.text || data.content || "";
     const image = safeImage(data.image_url || data.image || data.src);
     const link = safeLink(data.cta_url || data.url);
+    const link2 = safeLink(data.cta2_url);
+    const cta2 = link2 ? '<a class="btn btn-outline edc-live-cta2" style="margin-left:.5rem" href="' + esc(link2) + '">' + esc(data.cta2_label || "Learn more") + "</a>" : "";
     const cta = link ? '<a class="btn ' + (st.buttonVariant || "btn-gold") + ' edc-live-cta" href="' + esc(link) + '">' + esc(data.cta_label || "Learn more") + "</a>" : "";
     const open = '<section class="section edc-live-section edc-live-' + esc(type) + '" data-section-id="' + esc(section.section_id) + '" style="' + esc(sectionStyle(st)) + '"><div class="container" style="' + esc(innerStyle(st)) + '">';
     const close = "</div></section>";
@@ -139,7 +141,7 @@ const EDC_PUBLIC_PAGE = (() => {
         (title ? "<h1>" + esc(title) + "</h1>" : "") +
         (body ? '<p class="lead">' + esc(body) + "</p>" : "") +
         (image ? '<div class="hero-photo">' + img(image, data.alt || title, st) + "</div>" : "") +
-        cta + close;
+        cta + cta2 + close;
     }
 
     if (type === "image") {
@@ -173,7 +175,7 @@ const EDC_PUBLIC_PAGE = (() => {
             (item.text || item.body ? '<p class="muted">' + esc(item.text || item.body) + "</p>" : "") +
             (safeLink(item.url) ? '<a class="btn btn-outline btn-sm mt-4" href="' + esc(safeLink(item.url)) + '">' + esc(item.cta_label || "Read more") + "</a>" : "") +
             "</div></div>";
-        }).join("") + "</div>" + close;
+        }).join("") + "</div>" + (cta ? '<div class="mt-6" style="margin-top:24px">' + cta + "</div>" : "") + close;
     }
 
     if (type === "cta" || type === "banner") {
@@ -266,8 +268,48 @@ const EDC_PUBLIC_PAGE = (() => {
     debugPanel(pageSlug, result);
   }
 
+  /* ------------------------- editable site footer ------------------------- */
+  /**
+   * Renders Page Builder "footer" sections stored on the page with slug
+   * "site-footer". ui.js calls this on every page; when it returns markup the
+   * built-in hardcoded footer links are replaced by the editable ones.
+   */
+  async function renderFooterSections() {
+    const api = (typeof EDC_API !== "undefined") ? EDC_API : window.EDC_API;
+    if (!api || (typeof EDC_CONFIG !== "undefined" && EDC_CONFIG.DEMO_MODE)) return "";
+    let payload;
+    try {
+      const r = await api.getPublicPage("site-footer");
+      if (!r || !r.success) return "";
+      payload = r.data || {};
+    } catch (e) { return ""; }
+
+    const sections = (payload.sections || [])
+      .filter(s => String(s.visible).toLowerCase() !== "false")
+      .filter(s => String(s.type || "").toLowerCase() === "footer");
+    if (!sections.length) return "";
+
+    const cols = [];
+    sections.forEach(function (section) {
+      const data = parse(section.content_json, {});
+      if (data.title || data.body) {
+        cols.push("<div><h4>" + esc(data.title || "") + "</h4>" +
+          (data.body ? '<p style="max-width:280px;font-size:.85rem;">' + esc(data.body) + "</p>" : "") + "</div>");
+      }
+      (Array.isArray(data.groups) ? data.groups : []).forEach(function (g) {
+        cols.push("<div><h4>" + esc(g.title || "") + "</h4>" +
+          (Array.isArray(g.links) ? g.links : []).map(function (l) {
+            const u = safeLink(l.url) || "#";
+            return '<a href="' + esc(u) + '">' + esc(l.label || "") + "</a>";
+          }).join("") + "</div>");
+      });
+    });
+    if (!cols.length) return "";
+    return '<div class="container footer-grid">' + cols.join("") + "</div>";
+  }
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", render);
   else render();
 
-  return { render: render, slug: slug };
+  return { render: render, slug: slug, renderSection: renderSection, renderFooterSections: renderFooterSections };
 })();

@@ -23,6 +23,7 @@ const EDC_PAGEBUILDER = (() => {
     { id: "grid",   label: "Card grid" },
     { id: "cta",    label: "Call to action" },
     { id: "footer", label: "Footer links" },
+    { id: "html",   label: "Raw HTML (imported)" },
     { id: "spacer", label: "Spacer" }
   ];
 
@@ -193,6 +194,7 @@ const EDC_PAGEBUILDER = (() => {
     if (!head && s.type === "footer") head = "Footer link groups";
     if (!head && s.type === "spacer") head = "Spacer";
     if (!head && s.type === "image") head = c.alt || "Image";
+    if (!head && s.type === "html") head = String(c.html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Raw HTML block";
     return head || "(no heading yet)";
   }
 
@@ -257,6 +259,7 @@ const EDC_PAGEBUILDER = (() => {
         { title: "Company", links: [{ label: "About Us", url: "about.html" }, { label: "Services", url: "services.html" }, { label: "Teachers", url: "teachers.html" }, { label: "Careers", url: "careers.html" }] },
         { title: "Resources", links: [{ label: "Contact", url: "contact.html" }, { label: "Apply Now", url: "apply.html" }, { label: "Portal Login", url: "login.html" }] }
       ]},
+      html: { html: "<p>Paste or edit raw HTML here.</p>" },
       spacer: {}
     };
     const r = await api().createSection({ page_id: state.activePageId, type: type, content_json: starters[type] || {}, style_json: {} });
@@ -304,6 +307,44 @@ const EDC_PAGEBUILDER = (() => {
     return html;
   }
 
+
+  /* ---- card grid items: full repeater so photos + links stay editable ---- */
+  var itemSeq = 0;
+  function itemRow(it, i) {
+    it = it || {};
+    return '<div class="pb-grid-item" data-ii="' + i + '" style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:10px;">' +
+      field("Card title", text("it-title-" + i, it.title)) +
+      field("Card text", area("it-text-" + i, it.text || it.body, 3)) +
+      field("Card link", text("it-url-" + i, it.url, "teacher.html?id=…")) +
+      field("Card button label", text("it-ctalabel-" + i, it.cta_label)) +
+      field("Card photo (image URL)", text("it-image-" + i, it.image_url || it.image, "https://… or assets/img/photo.jpg")) +
+      field("Card photo alt text", text("it-alt-" + i, it.alt)) +
+      '<button class="pb-btn pb-btn-sm pb-btn-danger" data-act="delitem" type="button">Remove card</button>' +
+    '</div>';
+  }
+  function itemsEditor(items) {
+    items = Array.isArray(items) ? items : [];
+    itemSeq = items.length;
+    return '<p class="pb-hint">Every card is editable — including its own photo. Use the "Pick image" button beside a photo field to choose from the Media Library.</p>' +
+      '<div id="in-items-list">' + items.map(function (it, i) { return itemRow(it, i); }).join("") + '</div>' +
+      '<button class="pb-btn pb-btn-sm" id="in-add-item" type="button">+ Add card</button>';
+  }
+  function bindItemsEditor(box) {
+    var list = box.querySelector("#in-items-list");
+    if (!list) return;
+    function bindDeletes() {
+      list.querySelectorAll('[data-act="delitem"]').forEach(function (b) {
+        b.onclick = function () { b.closest(".pb-grid-item").remove(); };
+      });
+    }
+    bindDeletes();
+    var add = box.querySelector("#in-add-item");
+    if (add) add.onclick = function () {
+      list.insertAdjacentHTML("beforeend", itemRow({}, itemSeq++));
+      bindDeletes();
+    };
+  }
+
   function renderInspector() {
     const box = root.querySelector("#pb-inspector");
     const s = state.sections.find(x => x.section_id === state.activeSectionId);
@@ -323,15 +364,23 @@ const EDC_PAGEBUILDER = (() => {
     contentFields +=
       field("Button label", text("in-cta-label", c.cta_label)) +
       field("Button link", text("in-cta-url", c.cta_url || c.url, "apply.html or https://…")) +
+      field("Secondary button label", text("in-cta2-label", c.cta2_label)) +
+      field("Secondary button link", text("in-cta2-url", c.cta2_url, "about.html")) +
       field("Image URL", text("in-image", c.image_url || c.image, "https://… or assets/img/photo.jpg")) +
       field("Image alt text", text("in-alt", c.alt));
 
     if (s.type === "grid") {
-      contentFields += field("Cards (one per line — Title | Text | Link)", area("in-items", (Array.isArray(c.items) ? c.items : []).map(i => [i.title || "", i.text || i.body || "", i.url || ""].join(" | ")).join("\n"), 6));
+      contentFields += itemsEditor(c.items);
     }
 
     if (s.type === "footer") {
       contentFields = field("Section type", select("in-type", TYPES.map(t => t.id), s.type)) + footerEditor(c);
+    }
+
+    if (s.type === "html") {
+      contentFields = field("Section type", select("in-type", TYPES.map(t => t.id), s.type)) +
+        '<p class="pb-hint">Raw HTML block (usually created by "Import current page HTML"). Edit the markup directly — any image src can be replaced with a Media Library URL.</p>' +
+        field("HTML", area("in-html", c.html, 14));
     }
 
     box.innerHTML =
@@ -383,6 +432,8 @@ const EDC_PAGEBUILDER = (() => {
         box.querySelectorAll(".pb-tabpane").forEach(p => { p.hidden = p.dataset.pane !== tab.dataset.tab; });
       };
     });
+
+    bindItemsEditor(box);
 
     if (s.type === "footer") {
       var addGroupBtn = box.querySelector("#ft-add-group");
@@ -438,11 +489,21 @@ const EDC_PAGEBUILDER = (() => {
       maybe(content, "cta_url", val("in-cta-url"));
       maybe(content, "image_url", val("in-image"));
       maybe(content, "alt", val("in-alt"));
-      if (root.querySelector("#in-items")) {
-        content.items = val("in-items").split("\n").filter(Boolean).map(function (line) {
-          const parts = line.split("|").map(p => p.trim());
-          return { title: parts[0] || "", text: parts[1] || "", url: parts[2] || "" };
-        });
+      maybe(content, "cta2_label", val("in-cta2-label"));
+      maybe(content, "cta2_url", val("in-cta2-url"));
+      if (root.querySelector("#in-html")) content.html = root.querySelector("#in-html").value || "";
+      if (root.querySelector("#in-items-list")) {
+        content.items = Array.prototype.map.call(root.querySelectorAll(".pb-grid-item"), function (el) {
+          var i = el.dataset.ii;
+          var item = {};
+          maybe(item, "title", val("it-title-" + i));
+          maybe(item, "text", val("it-text-" + i));
+          maybe(item, "url", val("it-url-" + i));
+          maybe(item, "cta_label", val("it-ctalabel-" + i));
+          maybe(item, "image_url", val("it-image-" + i));
+          maybe(item, "alt", val("it-alt-" + i));
+          return item;
+        }).filter(function (it) { return Object.keys(it).length; });
       }
     }
 
@@ -462,6 +523,8 @@ const EDC_PAGEBUILDER = (() => {
     maybe(style, "gap", val("st-gap"));
     maybe(style, "buttonVariant", val("st-btn"));
     if (checked("st-reverse")) style.reverse = true;
+    if ((val("in-type") || s.type) === "html") style.allowHtml = true;
+    if (parse(s.style_json).imported) style.imported = true;
 
     if (s.type !== "footer") {
       const image = {};

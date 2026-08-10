@@ -73,135 +73,320 @@
         '<table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:6px;border-bottom:2px solid #eee">Slug / file</th><th style="text-align:left;padding:6px;border-bottom:2px solid #eee">Kind</th><th style="text-align:left;padding:6px;border-bottom:2px solid #eee">Status</th></tr></thead><tbody>' + rows + '</tbody></table>');
     },
 
+    /**
+     * Import a live page into the Page Builder as EDITABLE sections.
+     *
+     * slug "index" (the homepage) is a composite built by homepage-manager.js
+     * from Site Settings + the Google Sheet. It is imported as fully typed
+     * sections — hero, card grids, CTA — so every heading, link, card and
+     * PHOTO can be edited (and swapped through the Media Library) in the
+     * builder. The default site footer is imported too, onto the reserved
+     * "site-footer" page, where the "Footer links" editor picks it up.
+     *
+     * Any other slug pulls the static .html file and converts each block into
+     * typed sections (hero / text / image / split) where possible, falling
+     * back to an editable "Raw HTML" section.
+     */
     async importCurrentHtml(slug) {
-      if (!slug) slug = prompt("Enter the page slug to import (e.g. about, services, index):", "about");
+      if (!slug) slug = prompt("Enter the page slug to import (e.g. index, about, services):", "index");
       if (!slug) return;
+      slug = String(slug).trim().toLowerCase().replace(/\.html?$/, "");
 
-      const pages = (await api.getPages()).data || [];
-      const pg = pages.find(p => String(p.slug).toLowerCase() === String(slug).toLowerCase());
-      if (!pg) { alert("Create a page with slug '" + slug + "' in the Page Builder first, then run Import."); return; }
+      const pg = await ensurePage(slug);
+      if (!pg) return;
 
-      // Remove previously imported sections so re-imports don't pile up.
-      const existing = (await api.getSections({ page_id: pg.page_id })).data || [];
-      if (typeof api.deleteSection === "function") {
-        for (const s of existing) {
-          try { if (/imported/.test(String(s.style_json || ""))) await api.deleteSection({ section_id: s.section_id }); } catch (e) {}
+      const made = { n: 0 };
+      await clearImported(pg.page_id);
+
+      if (slug === "index") await importHomepage(pg, made);
+      else await importStaticFile(pg, slug, made);
+
+      // Footer (default footer links) — always imported so it becomes editable.
+      let footerNote = "";
+      try {
+        const fpg = await ensurePage("site-footer", "Site Footer");
+        if (fpg) {
+          await clearImported(fpg.page_id);
+          const fmade = { n: 0 };
+          await importFooter(fpg, fmade);
+          if (fmade.n) footerNote = " Default footer imported to the \"Site Footer\" page (edit it with the \"Footer links\" section).";
         }
-      }
+      } catch (e) {}
 
-      const imp = { imported: true };
-      let made = 0;
-      const add = async (type, content, style) => {
-        const r = await api.createSection({ page_id: pg.page_id, type: type, content_json: JSON.stringify(content), style_json: JSON.stringify(Object.assign({}, imp, style || {})) });
-        if (r && r.success) made++;
-      };
+      // Make sure the imported sections actually take over the page.
+      let modeNote = " Set Content mode = replace and Status = Published, then save.";
+      try {
+        await api.savePage({
+          page_id: pg.page_id, slug: pg.slug, nav_label: pg.nav_label || pg.slug,
+          render_mode: "replace", status: "Published",
+          in_navigation: pg.in_navigation === true, order: pg.order || 0
+        });
+        modeNote = " Content mode set to replace and the page published.";
+      } catch (e) {}
 
-      if (String(slug).toLowerCase() === "index") {
-        // The homepage is a composite (Homepage Layout hero + sheet-based blocks).
-        // Import them as editable sections. The public renderer only knows image/hero/
-        // text/gallery/html, so the blocks become "html" sections that reuse the site's
-        // own CSS classes (so they look identical to the live homepage) and the hero
-        // becomes a typed "hero" section so its photo is editable via the image picker.
-        const settings = (await api.getSiteSettings()).data || {};
-        const hero = settings.hero || {};
-        const photos = Array.isArray(hero.photos) ? hero.photos : [];
-        const ph = photos[0] || {};
+      if (typeof EDC_PAGEBUILDER !== "undefined" && EDC_PAGEBUILDER.reload) { try { await EDC_PAGEBUILDER.reload(); } catch (e) {} }
 
-        // Hero — typed; photo editable via the image picker (image_url field).
-        await add("hero", {
-          title: hero.title || "",
-          subtitle: hero.subtitle || "",
-          image_url: ph.url || "",
-          cta_label: hero.cta_primary_label || "",
-          cta_url: hero.cta_primary_url || ""
-        }, { allowHtml: false });
-
-        // Services cards
-        const services = (await api.getServices()).data || [];
-        if (services.length) {
-          const cards = services.map(s =>
-            '<div class="card"><div class="card-body">' +
-            (s.icon ? '<div style="font-size:1.8rem;margin-bottom:.75rem;">' + esc(s.icon) + '</div>' : '') +
-            '<h3>' + esc(s.title || "") + '</h3>' +
-            (s.short ? '<p class="muted" style="font-size:.9rem;">' + esc(s.short) + '</p>' : '') +
-            '</div></div>'
-          ).join("");
-          await add("html", { html: '<section class="section"><div class="container"><div class="section-head center"><span class="eyebrow">Why Schools &amp; Teachers Choose EDC</span><h2>A recruitment partner that handles the details.</h2></div><div class="grid grid-4">' + cards + '</div></div></section>' }, { allowHtml: true, padding: "0" });
-        }
-
-        // Teacher cards
-        const teachers = (await api.getTeachers({ featuredOnly: true })).data || [];
-        if (teachers.length) {
-          const cards = teachers.map(t => {
-            const subs = (Array.isArray(t.subjects) ? t.subjects : []).slice(0, 2).map(s => '<span class="pill">' + esc(s) + '</span>').join("");
-            return '<a href="teacher.html?id=' + esc(t.id) + '" class="card teacher-card">' +
-              '<div class="card-media"><img src="' + esc(t.photo || "") + '" alt="' + esc(t.name || "") + '"></div>' +
-              '<div class="card-body"><h3>' + esc(t.name || "") + '</h3>' +
-              (t.position ? '<div class="role">' + esc(t.position) + '</div>' : '') +
-              (subs ? '<div class="subjects">' + subs + '</div>' : '') +
-              '</div></a>';
-          }).join("");
-          await add("html", { html: '<section class="section"><div class="container"><div class="grid grid-3">' + cards + '</div></div></section>' }, { allowHtml: true, padding: "0" });
-        }
-
-        // CTA band (footer_cta)
-        const fcta = settings.footer_cta || {};
-        await add("html", { html:
-          '<section class="section"><div class="container"><div style="background:' + esc(fcta.background || "#0f172a") + ';color:' + esc(fcta.color || "#ffffff") + ';padding:48px 24px;border-radius:14px;text-align:center;' + (fcta.font ? 'font-family:' + esc(fcta.font) + ';' : '') + (fcta.font_size ? 'font-size:' + esc(fcta.font_size) + 'px;' : '') + '">' +
-          (fcta.text ? '<p style="font-size:1.2rem;margin:0 0 1rem;">' + esc(fcta.text) + '</p>' : '') +
-          (fcta.button_label ? '<a href="' + esc(fcta.button_url || "#") + '" class="btn btn-gold">' + esc(fcta.button_label) + '</a>' : '') +
-          '</div></div></section>' }, { allowHtml: true, padding: "0" });
-
-        // Testimonials
-        try {
-          const tm = (await api.getTestimonials()).data || [];
-          if (tm.length) {
-            const cards = tm.map(x =>
-              '<div class="card"><div class="card-body">' +
-              (x.quote ? '<p class="muted">' + esc(x.quote) + '</p>' : '') +
-              (x.name ? '<div style="margin-top:.75rem;font-weight:600;">' + esc(x.name) + '</div>' : '') +
-              (x.role ? '<div class="role">' + esc(x.role) + '</div>' : '') +
-              '</div></div>'
-            ).join("");
-            await add("html", { html: '<section class="section"><div class="container"><div class="section-head center"><span class="eyebrow">Testimonials</span><h2>What schools and teachers say.</h2></div><div class="grid grid-3">' + cards + '</div></div></section>' }, { allowHtml: true, padding: "0" });
-          }
-        } catch (e) {}
-      } else {
-        const url = "./" + slug + ".html";
-        let html;
-        try { const res = await fetch(url, { cache: "no-store" }); if (!res.ok) throw new Error("HTTP " + res.status); html = await res.text(); }
-        catch (e) { alert("Could not fetch " + url + ": " + e.message); return; }
-        const doc = new DOMParser().parseFromString(html, "text/html");
-        let main = doc.querySelector("main[data-edc-region]") || doc.querySelector("main");
-        if (main && /loading/i.test(main.textContent || "") && !main.querySelector("section")) {
-          alert("The page '" + slug + "' is built by JavaScript, so it has no static HTML to import.");
-          return;
-        }
-        const blocks = [];
-        if (main) {
-          const secs = main.querySelectorAll(":scope > section");
-          if (secs.length) secs.forEach(s => blocks.push(s.outerHTML));
-          else if (main.innerHTML.trim()) blocks.push(main.innerHTML);
-        }
-        if (!blocks.length) {
-          const b = doc.body || doc;
-          b.querySelectorAll("script, header, footer").forEach(el => el.remove());
-          if (b.innerHTML.trim()) blocks.push(b.innerHTML);
-        }
-        if (!blocks.length) { alert("No editable content found in " + url + "."); return; }
-        for (const blockHtml of blocks) await add("html", { html: blockHtml }, { source_url: url, allowHtml: true });
-      }
-
-      let modeNote = " Set the page Render mode = Replace and Status = Published, then save.";
-      if (typeof api.savePage === "function") {
-        try { await api.savePage({ page_id: pg.page_id, slug: pg.slug, nav_label: pg.nav_label, render_mode: "replace", status: "Published" }); modeNote = " Render mode set to Replace and published."; } catch (e) {}
-      }
-      const idxNote = (String(slug).toLowerCase() === "index")
-        ? " The homepage now shows Page Builder content. Delete all 'index' sections to restore the original Homepage Layout."
-        : "";
-      alert(made ? ("Imported " + made + " section(s) for '" + slug + "'." + idxNote + modeNote) : "Import failed.");
+      alert(made.n
+        ? "Imported " + made.n + " editable section(s) for \"" + slug + "\"." + footerNote + modeNote
+        : "Nothing could be imported for \"" + slug + "\"." + footerNote);
     },
-
     attachPicker(btn, onPick) { btn.onclick = async () => { const p = await EDC_MEDIA.open(); if (p && onPick) onPick(p); }; }
   };
+
+  /* ----------------------- import helpers (editable) ----------------------- */
+
+  const HP = () => (typeof EDC_HOMEPAGE !== "undefined" ? EDC_HOMEPAGE : window.EDC_HOMEPAGE);
+
+  async function ensurePage(slug, label) {
+    const pages = (await api.getPages()).data || [];
+    let pg = pages.find(p => String(p.slug).toLowerCase() === slug);
+    if (pg) return pg;
+    const r = await api.savePage({
+      nav_label: label || (slug === "index" ? "Home" : slug),
+      slug: slug, status: "Published", render_mode: "replace",
+      in_navigation: false, order: pages.length + 1
+    });
+    if (!r || !r.success) { alert('Could not create the "' + slug + '" page: ' + ((r && r.error && r.error.message) || "unknown error")); return null; }
+    const fresh = (await api.getPages()).data || [];
+    return fresh.find(p => String(p.slug).toLowerCase() === slug) || { page_id: r.data.page_id, slug: slug };
+  }
+
+  /** Remove sections created by a previous import so re-importing never piles up. */
+  async function clearImported(page_id) {
+    let existing = [];
+    try { existing = (await api.getSections(page_id)).data || []; } catch (e) { return; }
+    for (const s of existing) {
+      let st = {};
+      try { st = JSON.parse(s.style_json || "{}") || {}; } catch (e) { st = {}; }
+      if (st.imported) { try { await api.deleteSection(s.section_id, page_id); } catch (e) {} }
+    }
+  }
+
+  async function addSection(page_id, type, content, style, made) {
+    const r = await api.createSection({
+      page_id: page_id, type: type,
+      content_json: content,
+      style_json: Object.assign({ imported: true }, style || {})
+    });
+    if (r && r.success && made) made.n++;
+    return r;
+  }
+
+  /* ------------------------------- homepage -------------------------------- */
+
+  async function importHomepage(pg, made) {
+    const settings = (await api.getSiteSettings()).data || {};
+    const hp = HP();
+    const hero = hp && hp.getHero ? hp.getHero(settings) : (settings.hero || {});
+    const fc = hp && hp.getFooterCta ? hp.getFooterCta(settings) : (settings.footer_cta || {});
+    const order = hp && hp.getSections ? hp.getSections(settings) : [
+      { id: "hero", visible: true }, { id: "services", visible: true },
+      { id: "teachers", visible: true }, { id: "cta", visible: true },
+      { id: "testimonials", visible: true }
+    ];
+
+    for (const sec of order) {
+      if (sec.visible === false) continue;
+      if (sec.id === "hero") await importHero(pg, hero, made);
+      else if (sec.id === "services") await importServices(pg, made);
+      else if (sec.id === "teachers") await importTeachers(pg, made);
+      else if (sec.id === "cta") await importCta(pg, fc, made);
+      else if (sec.id === "testimonials") await importTestimonials(pg, made);
+    }
+  }
+
+  async function importHero(pg, hero, made) {
+    const photos = Array.isArray(hero.photos) ? hero.photos : [];
+    const ph = photos[0] || {};
+    await addSection(pg.page_id, "hero", {
+      eyebrow: hero.eyebrow || "",
+      title: hero.title || "",
+      body: hero.subtitle || "",
+      cta_label: hero.cta_primary_label || "",
+      cta_url: hero.cta_primary_url || "",
+      cta2_label: hero.cta_secondary_label || "",
+      cta2_url: hero.cta_secondary_url || "",
+      image_url: ph.url || "",
+      alt: ph.alt || ""
+    }, {
+      image: { fit: hero.crop_fit || "cover", position: hero.crop_position || "center", radius: 18, maxWidth: "100%" }
+    }, made);
+
+    // Extra slideshow photos stay editable as their own image sections.
+    for (let i = 1; i < photos.length; i++) {
+      await addSection(pg.page_id, "image", { title: "", image_url: photos[i].url || "", alt: photos[i].alt || "" },
+        { image: { fit: hero.crop_fit || "cover", position: hero.crop_position || "center", radius: 18, align: "center" } }, made);
+    }
+  }
+
+  async function importServices(pg, made) {
+    let services = [];
+    try { services = (await api.getServices()).data || []; } catch (e) {}
+    if (!services.length) return;
+    await addSection(pg.page_id, "grid", {
+      eyebrow: "Why Schools & Teachers Choose EDC",
+      title: "A recruitment partner that handles the details.",
+      items: services.map(s => ({
+        title: [s.icon, s.title].filter(Boolean).join(" ").trim() || s.title || "",
+        text: s.short || s.description || "",
+        url: s.url || ""
+      }))
+    }, { columns: 4, align: "center", gap: 24 }, made);
+  }
+
+  async function importTeachers(pg, made) {
+    let teachers = [];
+    try { teachers = (await api.getTeachers({ featuredOnly: true })).data || []; } catch (e) {}
+    if (!teachers.length) return;
+    await addSection(pg.page_id, "grid", {
+      eyebrow: "Teaching Opportunities",
+      title: "Featured teachers on our roster.",
+      cta_label: "View All Teachers",
+      cta_url: "teachers.html",
+      items: teachers.map(t => ({
+        title: t.name || "",
+        text: [t.position || "", (Array.isArray(t.subjects) ? t.subjects.slice(0, 2).join(", ") : "")].filter(Boolean).join(" — "),
+        url: t.id ? "teacher.html?id=" + t.id : "",
+        cta_label: "View profile",
+        image_url: t.photo || "",
+        alt: t.name || ""
+      }))
+    }, { columns: 4, gap: 24, image: { fit: "cover", height: 200, radius: 12, align: "center" } }, made);
+  }
+
+  async function importCta(pg, fc, made) {
+    await addSection(pg.page_id, "cta", {
+      title: "Ready to teach in Thailand?",
+      body: fc.text || "",
+      cta_label: fc.button_label || "",
+      cta_url: fc.button_url || ""
+    }, {
+      background: fc.background || "#0f172a",
+      color: fc.color || "#ffffff",
+      buttonVariant: "btn-gold"
+    }, made);
+  }
+
+  async function importTestimonials(pg, made) {
+    let list = [];
+    try { list = (await api.getTestimonials()).data || []; } catch (e) {}
+    if (!list.length) return;
+    await addSection(pg.page_id, "grid", {
+      eyebrow: "Testimonials",
+      title: "What teachers and partner schools say.",
+      items: list.map(t => ({
+        title: [t.name, t.role].filter(Boolean).join(" — "),
+        text: t.quote || ""
+      }))
+    }, { columns: 3, gap: 24 }, made);
+  }
+
+  /* -------------------------------- footer --------------------------------- */
+
+  async function importFooter(pg, made) {
+    const settings = (await api.getSiteSettings()).data || {};
+    // Same defaults the built-in footer (ui.js renderFooter) prints.
+    const groups = [
+      { title: "Company", links: [
+        { label: "About Us", url: "about.html" }, { label: "Services", url: "services.html" },
+        { label: "Teachers", url: "teachers.html" }, { label: "Careers", url: "careers.html" }
+      ]},
+      { title: "Resources", links: [
+        { label: "Contact", url: "contact.html" }, { label: "Apply Now", url: "apply.html" },
+        { label: "Portal Login", url: "login.html" }
+      ]},
+      { title: "Contact", links: [
+        settings.phone ? { label: settings.phone, url: "tel:" + settings.phone } : null,
+        settings.email ? { label: settings.email, url: "mailto:" + settings.email } : null,
+        settings.address ? { label: settings.address, url: "contact.html" } : null
+      ].filter(Boolean) }
+    ];
+    await addSection(pg.page_id, "footer", {
+      title: settings.short_name || "EDC",
+      body: settings.description || "",
+      groups: groups
+    }, {}, made);
+    await api.savePage({
+      page_id: pg.page_id, slug: "site-footer", nav_label: pg.nav_label || "Site Footer",
+      status: "Published", render_mode: "append", in_navigation: false, order: pg.order || 99
+    });
+  }
+
+  /* ------------------------- static .html conversion ----------------------- */
+
+  async function importStaticFile(pg, slug, made) {
+    const url = "./" + slug + ".html";
+    let html;
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      html = await res.text();
+    } catch (e) { alert("Could not fetch " + url + ": " + e.message); return; }
+
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const main = doc.querySelector("main[data-edc-region]") || doc.querySelector("main") || doc.body;
+    if (!main) { alert("No content found in " + url + "."); return; }
+    if (/loading/i.test(main.textContent || "") && !main.querySelector("section")) {
+      alert('The page "' + slug + '" is built by JavaScript, so it has no static HTML to import.');
+      return;
+    }
+    main.querySelectorAll("script, style").forEach(el => el.remove());
+
+    const blocks = Array.from(main.querySelectorAll(":scope > section"));
+    if (!blocks.length) blocks.push(main);
+    for (const block of blocks) await convertBlock(pg, block, made);
+  }
+
+  async function convertBlock(pg, el, made) {
+    const q = (sel) => el.querySelector(sel);
+    const txt = (node) => (node ? node.textContent.replace(/\s+/g, " ").trim() : "");
+    const eyebrow = txt(q(".eyebrow"));
+    const h1 = q("h1"), h2 = q("h2");
+    const title = txt(h1 || h2);
+    const image = q("img");
+    const link = q("a.btn, .hero-actions a, .cta-band a");
+    const link2 = el.querySelectorAll("a.btn, .hero-actions a")[1];
+    const paragraphs = Array.from(el.querySelectorAll("p")).map(txt).filter(Boolean);
+    const cards = Array.from(el.querySelectorAll(".card, .grid > *"));
+
+    const base = {
+      eyebrow: eyebrow,
+      title: title,
+      body: paragraphs.join("\n\n"),
+      cta_label: link ? txt(link) : "",
+      cta_url: link ? link.getAttribute("href") || "" : "",
+      cta2_label: link2 ? txt(link2) : "",
+      cta2_url: link2 ? link2.getAttribute("href") || "" : "",
+      image_url: image ? image.getAttribute("src") || "" : "",
+      alt: image ? image.getAttribute("alt") || "" : ""
+    };
+
+    // Card grids become editable card sections (each card keeps its own photo).
+    if (cards.length >= 2 && cards.every(c => c.querySelector("h3, h4, p"))) {
+      const items = cards.map(c => {
+        const ci = c.querySelector("img"), ca = c.querySelector("a[href]");
+        return {
+          title: txt(c.querySelector("h3, h4")),
+          text: txt(c.querySelector("p")),
+          url: ca ? ca.getAttribute("href") || "" : "",
+          image_url: ci ? ci.getAttribute("src") || "" : "",
+          alt: ci ? ci.getAttribute("alt") || "" : ""
+        };
+      }).filter(i => i.title || i.text || i.image_url);
+      if (items.length) {
+        await addSection(pg.page_id, "grid", { eyebrow: eyebrow, title: title, items: items },
+          { columns: items.length >= 4 ? 4 : 3, gap: 24 }, made);
+        return;
+      }
+    }
+
+    if (h1 && base.image_url) { await addSection(pg.page_id, "hero", base, { image: { fit: "cover", radius: 18 } }, made); return; }
+    if (h1) { await addSection(pg.page_id, "hero", base, {}, made); return; }
+    if (base.image_url && base.body) { await addSection(pg.page_id, "split", base, { image: { fit: "cover", radius: 16 } }, made); return; }
+    if (base.image_url) { await addSection(pg.page_id, "image", base, { image: { fit: "cover", radius: 16, align: "center" } }, made); return; }
+    if (title || base.body) { await addSection(pg.page_id, "text", base, {}, made); return; }
+
+    const raw = el.innerHTML.trim();
+    if (raw) await addSection(pg.page_id, "html", { html: raw }, { allowHtml: true }, made);
+  }
 })();
