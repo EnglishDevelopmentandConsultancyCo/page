@@ -238,10 +238,17 @@ const EDC_API = (() => {
     if (!saved.success) return saved;
     const page = await callBackend("getSections", { page_id: s.page_id });
     const row = (page.data || []).find(x => String(x.section_id) === String(s.section_id));
-    const contentMatches = s.content_json === undefined || String(row?.content_json || "") === String(typeof s.content_json === "object" ? JSON.stringify(s.content_json) : s.content_json);
+    const canonicalJson = (value) => {
+      if (value === undefined || value === null) return "";
+      if (typeof value === "object") return JSON.stringify(value);
+      try { return JSON.stringify(JSON.parse(String(value))); }
+      catch { return String(value); }
+    };
+    const contentMatches = s.content_json === undefined || canonicalJson(row?.content_json) === canonicalJson(s.content_json);
+    const styleMatches = s.style_json === undefined || canonicalJson(row?.style_json) === canonicalJson(s.style_json);
     const visibleMatches = s.visible === undefined || String(row?.visible) === String(s.visible === true || s.visible === "true");
-    if (!page.success || !row || !contentMatches || !visibleMatches) {
-      return fail("VERIFY_FAILED", "The section was saved, but the live section could not be verified.");
+    if (!page.success || !row || !contentMatches || !styleMatches || !visibleMatches) {
+      return fail("VERIFY_FAILED", "The section was saved, but its nested content or layout could not be verified.");
     }
     return ok(row, "Section saved and verified on the live backend.");
   }

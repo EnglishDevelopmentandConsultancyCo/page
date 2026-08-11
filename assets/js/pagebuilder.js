@@ -484,8 +484,26 @@ const EDC_PAGEBUILDER = (() => {
   function itemRow(it, i) {
     it = it || {};
     return '<div class="pb-grid-item" data-ii="' + i + '">' +
+      field("Card label / kicker", text("it-eyebrow-" + i, it.eyebrow || it.label || it.tag)) +
       field("Card title", text("it-title-" + i, it.title)) +
       field("Card text", area("it-text-" + i, it.text || it.body, 3)) +
+      field("Card content alignment", select("it-align-" + i, [
+        { value: "", label: "Use grid default" },
+        { value: "left", label: "Left" },
+        { value: "center", label: "Center" },
+        { value: "right", label: "Right" },
+        { value: "justify", label: "Justify" }
+      ], it.align || it.text_align || "")) +
+      field("Card layout", select("it-layout-" + i, [
+        { value: "stacked", label: "Stacked (photo above text)" },
+        { value: "horizontal", label: "Horizontal (photo beside text)" }
+      ], it.layout || "stacked")) +
+      field("Photo position", select("it-image-position-" + i, [
+        { value: "top", label: "Top" },
+        { value: "left", label: "Left" },
+        { value: "right", label: "Right" },
+        { value: "hidden", label: "Hide photo in this card" }
+      ], it.image_position || "top")) +
       field("Card link", text("it-url-" + i, it.url, "teacher.html?id=\u2026")) +
       field("Card button label", text("it-ctalabel-" + i, it.cta_label)) +
       field("Card photo (image URL)", text("it-image-" + i, it.image_url || it.image, "https://\u2026 or assets/img/photo.jpg")) +
@@ -496,7 +514,7 @@ const EDC_PAGEBUILDER = (() => {
   function itemsEditor(items) {
     items = Array.isArray(items) ? items : [];
     itemSeq = items.length;
-    return '<p class="pb-hint">Every card is editable — including its own photo. Use the "Pick image" button beside a photo field to choose from the Media Library.</p>' +
+    return '<p class="pb-hint">Every card is editable — including its label, alignment, layout, and photo. Cards use equal spaces by default, and each card can override those defaults.</p>' +
       '<div id="in-items-list">' + items.map(function (it, i) { return itemRow(it, i); }).join("") + '</div>' +
       '<button class="pb-btn pb-btn-sm" id="in-add-item" type="button">+ Add card</button>';
   }
@@ -598,7 +616,21 @@ const EDC_PAGEBUILDER = (() => {
               '<div class="pb-field-row">' +
                 field("Grid columns", num("st-cols", st.columns, "3")) +
                 field("Gap between cards (px)", num("st-gap", st.gap, "24")) +
-              '</div>' : '') +
+              '</div>' +
+              '<div class="pb-field-row">' +
+                field("Card arrangement", select("st-card-layout", [
+                  { value: "grid", label: "Equal card grid (default)" },
+                  { value: "horizontal", label: "Horizontal scrolling row" }
+                ], st.cardLayout || "grid")) +
+                field("Default card alignment", select("st-card-align", [
+                  { value: "", label: "Theme default" },
+                  { value: "left", label: "Left" },
+                  { value: "center", label: "Center" },
+                  { value: "right", label: "Right" },
+                  { value: "justify", label: "Justify" }
+                ], st.cardAlign || "")) +
+              '</div>' +
+              checkbox("st-card-height", st.equalCardHeight !== false, "Keep cards the same height") : '') +
             field("Button style", select("st-btn", [
               { value: "btn-gold", label: "Gold button" },
               { value: "btn-primary", label: "Navy button" },
@@ -745,7 +777,12 @@ const EDC_PAGEBUILDER = (() => {
     const box = root.querySelector("#pb-inspector");
     if (!box) return s;
 
-    const content = {};
+    const originalContent = parse(s.content_json);
+    const content = Object.assign({}, originalContent);
+    function putContent(key, id) {
+      const input = root.querySelector("#" + id);
+      if (input) content[key] = input.value.trim();
+    }
     if (s.type === "footer") {
       var groups = [];
       box.querySelectorAll(".pb-footer-group").forEach(function (gel) {
@@ -760,32 +797,42 @@ const EDC_PAGEBUILDER = (() => {
       });
       content.groups = groups;
     } else {
-      maybe(content, "eyebrow", val("in-eyebrow"));
-      maybe(content, "title", val("in-title"));
-      maybe(content, "body", val("in-body"));
-      maybe(content, "cta_label", val("in-cta-label"));
-      maybe(content, "cta_url", val("in-cta-url"));
-      maybe(content, "image_url", val("in-image"));
-      maybe(content, "alt", val("in-alt"));
-      maybe(content, "cta2_label", val("in-cta2-label"));
-      maybe(content, "cta2_url", val("in-cta2-url"));
+      putContent("eyebrow", "in-eyebrow");
+      putContent("title", "in-title");
+      putContent("body", "in-body");
+      putContent("cta_label", "in-cta-label");
+      putContent("cta_url", "in-cta-url");
+      putContent("image_url", "in-image");
+      putContent("alt", "in-alt");
+      putContent("cta2_label", "in-cta2-label");
+      putContent("cta2_url", "in-cta2-url");
       if (box.querySelector("#in-html")) content.html = box.querySelector("#in-html").value || "";
       if (box.querySelector("#in-items-list")) {
+        const originalItems = Array.isArray(originalContent.items) ? originalContent.items : [];
         content.items = Array.prototype.map.call(box.querySelectorAll(".pb-grid-item"), function (el) {
           var i = el.dataset.ii;
-          var item = {};
-          maybe(item, "title", val("it-title-" + i));
-          maybe(item, "text", val("it-text-" + i));
-          maybe(item, "url", val("it-url-" + i));
-          maybe(item, "cta_label", val("it-ctalabel-" + i));
-          maybe(item, "image_url", val("it-image-" + i));
-          maybe(item, "alt", val("it-alt-" + i));
+          var item = Object.assign({}, originalItems[Number(i)] || {});
+          [
+            ["eyebrow", "it-eyebrow-" + i],
+            ["title", "it-title-" + i],
+            ["text", "it-text-" + i],
+            ["align", "it-align-" + i],
+            ["layout", "it-layout-" + i],
+            ["image_position", "it-image-position-" + i],
+            ["url", "it-url-" + i],
+            ["cta_label", "it-ctalabel-" + i],
+            ["image_url", "it-image-" + i],
+            ["alt", "it-alt-" + i]
+          ].forEach(function (pair) {
+            const input = root.querySelector("#" + pair[1]);
+            if (input) item[pair[0]] = input.value.trim();
+          });
           return item;
         }).filter(function (it) { return Object.keys(it).length; });
       }
     }
 
-    const style = {};
+    const style = Object.assign({}, parse(s.style_json));
     maybe(style, "background", val("st-bg"));
     maybe(style, "color", val("st-color"));
     maybe(style, "backgroundImage", val("st-bgimg"));
@@ -799,6 +846,9 @@ const EDC_PAGEBUILDER = (() => {
     maybe(style, "blockAlign", val("st-blockalign"));
     maybe(style, "columns", val("st-cols"));
     maybe(style, "gap", val("st-gap"));
+    maybe(style, "cardLayout", val("st-card-layout"));
+    maybe(style, "cardAlign", val("st-card-align"));
+    style.equalCardHeight = checked("st-card-height");
     maybe(style, "buttonVariant", val("st-btn"));
     if (checked("st-reverse")) style.reverse = true;
     if ((val("in-type") || s.type) === "html") style.allowHtml = true;

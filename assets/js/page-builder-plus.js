@@ -366,6 +366,7 @@
       const items = cards.map(c => {
         const ci = c.querySelector("img"), ca = c.querySelector("a[href]");
         return {
+          eyebrow: txt(c.querySelector(".tag, .eyebrow, .kicker")),
           title: txt(c.querySelector("h3, h4")),
           text: txt(c.querySelector("p")),
           url: ca ? ca.getAttribute("href") || "" : "",

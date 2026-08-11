@@ -158,6 +158,14 @@
   display: grid !important; gap: 12px !important;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
 }
+.pb-live-frame .edc-live-grid.pb-card-layout-horizontal {
+  display: flex !important;
+  grid-template-columns: none !important;
+  overflow-x: auto !important;
+}
+.pb-live-frame .edc-live-grid.pb-card-layout-horizontal .card {
+  flex: 0 0 min(86vw, 260px);
+}
 .pb-live-frame .card { background: #fff; border: 1px solid var(--pb-line); border-radius: 10px; padding: 14px; }
 .pb-live-frame .cta-band {
   background: var(--pb-navy) !important; color: #fff !important; padding: 20px !important;

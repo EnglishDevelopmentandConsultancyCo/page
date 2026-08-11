@@ -57,6 +57,10 @@ const EDC_PUBLIC_PAGE = (() => {
     return /^(https?:\/\/|mailto:|tel:|#|\.?\/|[\w-]+\.html)/i.test(u) ? u : "";
   }
 
+  function enumValue(value, allowed, fallback) {
+    return allowed.indexOf(String(value || "")) >= 0 ? String(value) : fallback;
+  }
+
   /* ---------------- style engine ---------------- */
 
   function cssUnit(v) {
@@ -239,21 +243,39 @@ const EDC_PUBLIC_PAGE = (() => {
     if (type === "grid" || type === "cards") {
       const items = Array.isArray(data.items) ? data.items : [];
       const cols = Number(st.columns) || (items.length >= 3 ? 3 : 2);
+      const cardLayout = enumValue(st.cardLayout, ["grid", "horizontal"], "grid");
+      const cardAlign = enumValue(st.cardAlign, ["left", "center", "right", "justify"], "");
+      const equalCardHeight = st.equalCardHeight !== false;
+      const gridClass = cardLayout === "horizontal" ? " pb-card-layout-horizontal" : "";
+      const gridStyle = cardLayout === "horizontal"
+        ? "display:flex;flex-wrap:nowrap;overflow-x:auto;align-items:stretch;gap:" + cssUnit(st.gap || 24)
+        : "display:grid;align-items:stretch;gap:" + cssUnit(st.gap || 24) + ";grid-template-columns:repeat(" + Math.max(1, cols) + ",minmax(0,1fr))";
       return open +
         (data.eyebrow ? eyebrowHtml(data, st) : "") +
         (data.title || data.heading ? '<div class="section-head">' + headingHtml(data, st, "h2") + "</div>" : "") +
         (data.body ? bodyHtml(data, st) : "") +
-        '<div class="edc-live-grid" style="display:grid;gap:' + cssUnit(st.gap || 24) + ';grid-template-columns:repeat(auto-fit,minmax(' + cssUnit(st.minCard || 260) + ',1fr));--cols:' + cols + '">' +
+        '<div class="edc-live-grid' + gridClass + '" style="' + gridStyle + '">' +
         items.map(function (item) {
           const itemImg = safeImage(item.image_url || item.image);
           const titleEs = elementStyle(st, "cardTitle");
           const textEs = elementStyle(st, "cardText");
           const btnEs = elementStyle(st, "cardButton");
-          return '<div class="card"><div class="card-body">' +
-            (itemImg ? img(itemImg, item.title || "", st) : "") +
+          const itemLayout = enumValue(item.layout, ["stacked", "horizontal"], "stacked");
+          const mediaPosition = enumValue(item.image_position || item.media_position, ["top", "left", "right", "hidden"], itemLayout === "horizontal" ? "left" : "top");
+          const itemTextAlign = enumValue(item.align || item.text_align, ["left", "center", "right", "justify"], cardAlign);
+          const cardStyle = (equalCardHeight ? "height:100%;" : "") + (cardLayout === "horizontal" ? "flex:0 0 min(86vw,420px);" : "");
+          const bodyStyle = "height:100%;" +
+            (itemTextAlign ? "text-align:" + itemTextAlign + ";" : "") +
+            (itemLayout === "horizontal" ? "display:flex;align-items:center;gap:16px;" : "");
+          const itemImage = itemImg && mediaPosition !== "hidden" ? img(itemImg, item.alt || item.title || "", st) : "";
+          const itemLabel = item.eyebrow || item.label || item.tag || "";
+          const itemCopy = (itemLabel ? '<span class="tag">' + esc(itemLabel) + "</span>" : "") +
             (item.title ? "<h3" + (titleEs ? ' style="' + esc(titleEs) + '"' : "") + ">" + esc(item.title) + "</h3>" : "") +
             (item.text || item.body ? '<p class="muted"' + (textEs ? ' style="' + esc(textEs) + '"' : "") + ">" + esc(item.text || item.body) + "</p>" : "") +
-            (safeLink(item.url) ? '<a class="btn btn-outline btn-sm mt-4"' + (btnEs ? ' style="' + esc(btnEs) + '"' : "") + ' href="' + esc(safeLink(item.url)) + '">' + esc(item.cta_label || "Read more") + "</a>" : "") +
+            (safeLink(item.url) ? '<a class="btn btn-outline btn-sm mt-4"' + (btnEs ? ' style="' + esc(btnEs) + '"' : "") + ' href="' + esc(safeLink(item.url)) + '">' + esc(item.cta_label || "Read more") + "</a>" : "");
+          const mediaFirst = mediaPosition !== "right";
+          return '<div class="card"' + (cardStyle ? ' style="' + esc(cardStyle) + '"' : "") + '><div class="card-body"' + (bodyStyle ? ' style="' + esc(bodyStyle) + '"' : "") + ">" +
+            (mediaFirst ? itemImage + itemCopy : itemCopy + itemImage) +
             "</div></div>";
         }).join("") + "</div>" + (safeLink(data.cta_url || data.url) ? '<div class="mt-6" style="margin-top:24px">' + ctaHtml(data, st) + "</div>" : "") + close;
     }
@@ -300,6 +322,9 @@ const EDC_PUBLIC_PAGE = (() => {
   }
 
   async function render() {
+    if (document.body && document.body.dataset && document.body.dataset.edcAdmin === "true") {
+      return;
+    }
     const pageSlug = slug();
     const api = (typeof EDC_API !== "undefined") ? EDC_API : window.EDC_API;
     if (!api || typeof EDC_CONFIG === "undefined") { log("api.js/config.js not loaded before public-page.js — check script order."); return debugPanel(pageSlug, null); }

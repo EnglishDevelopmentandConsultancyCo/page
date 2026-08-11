@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="assets/css/main.css">
 <link rel="stylesheet" href="assets/css/admin-builder.css">
 </head>
-<body>
+<body data-edc-admin="true">
 <div class="admin-shell">
   <aside class="admin-sidebar">
     <div class="brand">
@@ -78,6 +78,9 @@
 <script src="assets/js/api.js"></script>
 <script src="assets/js/api-extras.js"></script>
 <script src="assets/js/ui.js"></script>
+<!-- Loads the same section renderer used by the public site.
+     public-page.js skips its automatic page render on the admin builder. -->
+<script src="assets/js/public-page.js"></script>
 <script>
 const esc = EDC_UI.escapeHtml;
 let session;
