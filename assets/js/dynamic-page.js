@@ -38,6 +38,11 @@
   }
 
   function sectionNode(sec) {
+    if (typeof EDC_PUBLIC_PAGE !== "undefined" && EDC_PUBLIC_PAGE.renderSection) {
+      const temp = document.createElement("div");
+      temp.innerHTML = EDC_PUBLIC_PAGE.renderSection(sec);
+      return temp.firstElementChild || temp;
+    }
     const c = parse(sec.content_json, {});
     const st = parse(sec.style_json, {});
     const wrap = document.createElement("section");
@@ -47,7 +52,7 @@
     if (t === "image") {
       const fig = document.createElement("figure"); fig.style.cssText = "margin:0;";
       const img = document.createElement("img");
-      img.src = c.url || ""; img.alt = c.alt_text || ""; img.loading = "lazy";
+      img.src = c.url || c.image_url || c.image || ""; img.alt = c.alt_text || c.alt || ""; img.loading = "lazy";
       img.style.cssText = "width:100%;height:auto;border-radius:10px;" + (c.width ? "max-width:" + c.width + ";" : "") + (c.align ? "display:block;margin-left:auto;margin-right:auto;" : "");
       fig.appendChild(img);
       if (c.caption) { const fc = document.createElement("figcaption"); fc.textContent = c.caption; fc.style.cssText = "text-align:center;font-size:.9rem;color:#666;margin-top:.5rem;"; fig.appendChild(fc); }
@@ -58,10 +63,17 @@
         (c.image_url ? '<img src="' + esc(c.image_url) + '" alt="" style="width:100%;max-height:380px;object-fit:cover;border-radius:12px;margin-bottom:20px;">' : '') +
         (c.title ? '<h1 style="font-size:2.4rem;margin:0 0 .5rem;">' + esc(c.title) + '</h1>' : '') +
         (c.subtitle ? '<p style="font-size:1.1rem;opacity:.8;max-width:720px;margin:0 auto 1rem;">' + esc(c.subtitle) + '</p>' : '') +
+        '<div style="display:inline-flex;gap:12px;flex-wrap:wrap;justify-content:center;">' +
         (c.cta_label && c.cta_url ? '<a href="' + esc(c.cta_url) + '" style="display:inline-block;padding:12px 24px;background:#0f766e;color:#fff;border-radius:8px;text-decoration:none;">' + esc(c.cta_label) + '</a>' : '') +
-        '</div>';
+        (c.cta2_label && c.cta2_url ? '<a href="' + esc(c.cta2_url) + '" style="display:inline-block;padding:12px 24px;border:1px solid #0f766e;color:#0f766e;border-radius:8px;text-decoration:none;">' + esc(c.cta2_label) + '</a>' : '') +
+        '</div></div>';
     } else if (t === "text") {
-      wrap.innerHTML = (c.heading ? '<h2 style="margin:0 0 .75rem;">' + esc(c.heading) + '</h2>' : '') + (c.html || esc(c.text || ""));
+      const src = String(c.body || c.text || c.html || "").replace(/\r\n?/g, "\n");
+      const paras = src.split(/\n{2,}/).map(p => {
+        const inner = esc(p.replace(/^\n+|\n+$/g, "")).replace(/\n/g, "<br>");
+        return inner ? '<p class="edc-rich" style="margin-bottom:1.25rem;line-height:1.65;">' + inner + '</p>' : '';
+      }).join("");
+      wrap.innerHTML = (c.heading ? '<h2 style="margin:0 0 .75rem;">' + esc(c.heading) + '</h2>' : '') + (paras || (c.html || esc(c.text || "")));
     } else if (t === "gallery") {
       const g = document.createElement("div"); g.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;";
       (c.images || []).forEach(im => {

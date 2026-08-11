@@ -558,27 +558,31 @@ const EDC_PAGEBUILDER = (() => {
   }
 
   function bindAdvImage(box, s, im) {
-    const btn = box.querySelector("#im-adv-open");
-    if (!btn) return;
+    const btns = box.querySelectorAll("#im-adv-open");
+    if (!btns.length) return;
     state.advImage = im && im.adv ? im.adv : null;
-    btn.onclick = async function () {
-      if (typeof EDC_IMAGE_EDITOR === "undefined") {
-        return EDC_UI.toast("Image editor not loaded (assets/js/image-editor.js).", "error");
-      }
-      const seed = state.advImage
-        ? state.advImage
-        : { slides: [{ url: (val("in-image") || ""), alt: val("in-alt") || "" }].filter(function (x) { return x.url; }) };
-      const result = await EDC_IMAGE_EDITOR.open(seed);
-      if (result === null) return;                 /* cancelled — change nothing */
-      state.advImage = result === false ? null : result;  /* false = remove advanced settings */
-      const status = box.querySelector("#im-adv-status");
-      if (status) status.textContent = advImageSummary(state.advImage);
-      if (state.advImage && state.advImage.slides.length) {
-        const first = box.querySelector("#in-image");
-        if (first && !first.value.trim()) first.value = state.advImage.slides[0].url;
-      }
-      scheduleLivePreview();
-    };
+    btns.forEach(function (btn) {
+      btn.onclick = async function () {
+        if (typeof EDC_IMAGE_EDITOR === "undefined") {
+          return EDC_UI.toast("Image editor not loaded (assets/js/image-editor.js).", "error");
+        }
+        const inputImg = val("in-image") || "";
+        const seed = state.advImage
+          ? state.advImage
+          : { slides: [{ url: inputImg, alt: val("in-alt") || "" }].filter(function (x) { return x.url; }) };
+        const result = await EDC_IMAGE_EDITOR.open(seed);
+        if (result === null) return;                 /* cancelled — change nothing */
+        state.advImage = result === false ? null : result;  /* false = remove advanced settings */
+        box.querySelectorAll("#im-adv-status").forEach(function (stEl) {
+          stEl.textContent = advImageSummary(state.advImage);
+        });
+        if (state.advImage && state.advImage.slides && state.advImage.slides.length) {
+          const first = box.querySelector("#in-image");
+          if (first && !first.value.trim()) first.value = state.advImage.slides[0].url;
+        }
+        scheduleLivePreview();
+      };
+    });
   }
 
   function renderInspector() {
@@ -604,6 +608,7 @@ const EDC_PAGEBUILDER = (() => {
       field("Secondary button label", text("in-cta2-label", c.cta2_label)) +
       field("Secondary button link", text("in-cta2-url", c.cta2_url, "about.html")) +
       field("Image URL", text("in-image", c.image_url || c.image, "https://\u2026 or assets/img/photo.jpg")) +
+      advImageBar(im.adv) +
       field("Image alt text", text("in-alt", c.alt));
 
     if (s.type === "grid") {

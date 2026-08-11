@@ -54,7 +54,9 @@ const EDC_PUBLIC_PAGE = (() => {
 
   function safeLink(url) {
     const u = String(url || "").trim();
-    return /^(https?:\/\/|mailto:|tel:|#|\.?\/|[\w-]+\.html)/i.test(u) ? u : "";
+    if (!u) return "";
+    if (/^javascript:/i.test(u)) return "#";
+    return u;
   }
 
   function enumValue(value, allowed, fallback) {
@@ -269,19 +271,30 @@ const EDC_PUBLIC_PAGE = (() => {
   }
 
   function ctaHtml(data, st) {
-    const link = safeLink(data.cta_url || data.url);
-    if (!link) return "";
+    const link = safeLink(data.cta_url || data.cta_primary_url || data.url);
+    const label = data.cta_label || data.cta_primary_label;
+    if (!link && !label) return "";
+    const href = link || "#";
     const es = elementStyle(st, "button");
     const variant = st.buttonVariant || "btn-gold";
-    return '<a class="btn ' + variant + ' edc-live-cta"' + (es ? ' style="' + esc(es) + '"' : "") + ' href="' + esc(link) + '">' + esc(data.cta_label || "Learn more") + "</a>";
+    return '<a class="btn ' + variant + ' edc-live-cta"' + (es ? ' style="' + esc(es) + '"' : "") + ' href="' + esc(href) + '">' + esc(label || "Learn more") + "</a>";
   }
 
   function cta2Html(data, st) {
-    const link2 = safeLink(data.cta2_url);
-    if (!link2) return "";
+    const link2 = safeLink(data.cta2_url || data.cta_secondary_url);
+    const label2 = data.cta2_label || data.cta_secondary_label;
+    if (!link2 && !label2) return "";
+    const href = link2 || "#";
     const es = elementStyle(st, "button2");
-    var styleAttr = es ? esc(es) + ";margin-left:.5rem" : "margin-left:.5rem";
-    return '<a class="btn btn-outline edc-live-cta2" style="' + styleAttr + '" href="' + esc(link2) + '">' + esc(data.cta2_label || "Learn more") + "</a>";
+    var styleAttr = es ? esc(es) : "";
+    return '<a class="btn btn-outline edc-live-cta2"' + (styleAttr ? ' style="' + esc(styleAttr) + '"' : "") + ' href="' + esc(href) + '">' + esc(label2 || "Learn more") + "</a>";
+  }
+
+  function buttonsHtml(data, st) {
+    const b1 = ctaHtml(data, st);
+    const b2 = cta2Html(data, st);
+    if (!b1 && !b2) return "";
+    return '<div class="edc-live-btns" style="display:inline-flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:16px;">' + b1 + b2 + '</div>';
   }
 
   /* ------------------------------- renderers ------------------------------- */
@@ -307,14 +320,14 @@ const EDC_PUBLIC_PAGE = (() => {
         headingHtml(data, st, "h1") +
         bodyHtml(data, st) +
         (image ? '<div class="hero-photo">' + img(image, data.alt || data.title || "", st) + "</div>" : "") +
-        ctaHtml(data, st) + cta2Html(data, st) + close;
+        buttonsHtml(data, st) + close;
     }
 
     if (type === "image") {
       return open +
         (data.title || data.heading ? '<div class="section-head">' + headingHtml(data, st, "h2") + "</div>" : "") +
         img(image, data.alt || data.title || "", st) +
-        bodyHtml(data, st) + ctaHtml(data, st) + close;
+        bodyHtml(data, st) + buttonsHtml(data, st) + close;
     }
 
     if (type === "split") {
@@ -322,7 +335,7 @@ const EDC_PUBLIC_PAGE = (() => {
       const text = '<div class="edc-split-text">' +
         headingHtml(data, st, "h2") +
         richText(data.body || data.text || "", elementStyle(st, "body"), "muted") +
-        ctaHtml(data, st) + "</div>";
+        buttonsHtml(data, st) + "</div>";
       const media = '<div class="edc-split-media">' + img(image, data.alt || data.title || "", st) + "</div>";
       return open + '<div class="edc-split" style="gap:' + cssUnit(st.gap || 40) + '">' +
         (reverse ? media + text : text + media) + "</div>" + close;
@@ -365,13 +378,13 @@ const EDC_PUBLIC_PAGE = (() => {
           return '<div class="card"' + (cardStyle ? ' style="' + esc(cardStyle) + '"' : "") + '><div class="card-body"' + (bodyStyle ? ' style="' + esc(bodyStyle) + '"' : "") + ">" +
             (mediaFirst ? itemImage + itemCopy : itemCopy + itemImage) +
             "</div></div>";
-        }).join("") + "</div>" + (safeLink(data.cta_url || data.url) ? '<div class="mt-6" style="margin-top:24px">' + ctaHtml(data, st) + "</div>" : "") + close;
+        }).join("") + "</div>" + (buttonsHtml(data, st) ? '<div class="mt-6" style="margin-top:24px">' + buttonsHtml(data, st) + "</div>" : "") + close;
     }
 
     if (type === "cta" || type === "banner") {
       return open + '<div class="cta-band"><div>' +
         headingHtml(data, st, "h2") +
-        bodyHtml(data, st) + "</div>" + ctaHtml(data, st) + "</div>" + close;
+        bodyHtml(data, st) + "</div>" + buttonsHtml(data, st) + "</div>" + close;
     }
 
     if (type === "html" && st.allowHtml === true) {
@@ -386,7 +399,7 @@ const EDC_PUBLIC_PAGE = (() => {
     return open +
       (data.title || data.heading ? '<div class="section-head">' + headingHtml(data, st, "h2") + "</div>" : "") +
       bodyHtml(data, st) +
-      (image ? img(image, data.alt || data.title || "", st) : "") + ctaHtml(data, st) + close;
+      (image ? img(image, data.alt || data.title || "", st) : "") + buttonsHtml(data, st) + close;
   }
 
   /* -------------------------------- mounting ------------------------------- */
