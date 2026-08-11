@@ -160,7 +160,74 @@ const EDC_PUBLIC_PAGE = (() => {
 
   function img(src, alt, st) {
     if (!src) return "";
+    /* Advanced image settings (crop / zoom / slideshow) take over when present */
+    const adv = advImage(st, alt);
+    if (adv) return adv;
     return '<img class="edc-live-image" loading="lazy" src="' + esc(src) + '" alt="' + esc(alt || "") + '" style="' + esc(imageStyle(st)) + '">';
+  }
+
+  /* ---- advanced image frame + slideshow ----------------------------------
+   * Reads style_json.image.adv written by the Page Builder image editor.
+   * The frame is fixed; each slide keeps its own pan (posX/posY) and zoom,
+   * using exactly the same maths as assets/js/image-editor.js so the
+   * published page matches the builder.
+   * ---------------------------------------------------------------------- */
+
+  function clampNum(v, lo, hi, d) {
+    const n = parseFloat(v);
+    if (!isFinite(n)) return d;
+    return n < lo ? lo : (n > hi ? hi : n);
+  }
+
+  function slideLayerStyle(slide) {
+    const zoom = clampNum(slide.zoom, 1, 5, 1);
+    const posX = clampNum(slide.posX, 0, 1, 0.5);
+    const posY = clampNum(slide.posY, 0, 1, 0.5);
+    const size = zoom * 100;
+    return "left:" + (-(zoom - 1) * posX * 100).toFixed(4) + "%;" +
+      "top:" + (-(zoom - 1) * posY * 100).toFixed(4) + "%;" +
+      "width:" + size.toFixed(4) + "%;height:" + size.toFixed(4) + "%;" +
+      "background-image:url('" + safeImage(slide.url).replace(/'/g, "%27") + "')";
+  }
+
+  function advImage(st, alt) {
+    const i = (st && st.image) || {};
+    const adv = i.adv;
+    if (!adv || adv.enabled === false) return "";
+    const slides = (Array.isArray(adv.slides) ? adv.slides : [])
+      .filter(function (s) { return s && safeImage(s.url); });
+    if (!slides.length) return "";
+
+    const isShow = adv.mode === "slideshow" && slides.length > 1;
+    const shown = isShow ? slides : [slides[0]];
+
+    const box = ["position:relative", "overflow:hidden"];
+    box.push("width:" + (i.adv.frameWidth ? cssUnit(i.adv.frameWidth) : "100%"));
+    box.push("height:" + cssUnit(adv.frameHeight || 360));
+    box.push("max-width:100%");
+    if (i.maxWidth) box.push("max-width:" + cssUnit(i.maxWidth));
+    const shape = i.shape || "default";
+    if (shape === "circle") box.push("border-radius:50%");
+    else if (shape === "rounded") box.push("border-radius:16px");
+    else if (shape === "square") box.push("border-radius:0");
+    else if (i.radius) box.push("border-radius:" + cssUnit(i.radius));
+    if (i.shadow) box.push("box-shadow:0 18px 40px rgba(15,23,42,.18)");
+    if (i.align === "center") box.push("margin-left:auto;margin-right:auto");
+    else if (i.align === "right") box.push("margin-left:auto;margin-right:0");
+    else box.push("margin-left:0;margin-right:auto");
+    if (i.marginTop) box.push("margin-top:" + cssUnit(i.marginTop));
+    if (i.marginBottom) box.push("margin-bottom:" + cssUnit(i.marginBottom));
+
+    const inner = shown.map(function (s, idx) {
+      return '<div class="edc-imgframe-slide' + (idx === 0 ? " is-active" : "") + '"' +
+        ' role="img" aria-label="' + esc(s.alt || alt || "") + '"' +
+        ' style="' + esc(slideLayerStyle(s)) + '"></div>';
+    }).join("");
+
+    return '<div class="edc-imgframe edc-live-image"' +
+      (isShow ? ' data-edc-slideshow data-duration="' + esc(clampNum(adv.duration, 0.5, 120, 5)) +
+        '" data-transition="' + esc(["fade", "slide", "none"].indexOf(adv.transition) >= 0 ? adv.transition : "fade") + '"' : "") +
+      ' style="' + esc(box.join(";")) + '">' + inner + "</div>";
   }
 
   /* ---- element wrappers ---- */
@@ -182,8 +249,23 @@ const EDC_PUBLIC_PAGE = (() => {
     const body = data.body || data.text || data.content || "";
     if (!body) return "";
     const es = elementStyle(st, "body");
-    const raw = esc(body).replace(/\n{2,}/g, "</p><p>").replace(/\n/g, "<br>");
-    return '<p' + (es ? ' style="' + esc(es) + '"' : "") + ">" + raw + "</p>";
+    return richText(body, es, "");
+  }
+
+  /* ---- shared rich-text renderer ------------------------------------------
+   * Keeps what the editor typed: a blank line starts a new paragraph
+   * (its own <p> with consistent spacing) and a single Enter becomes <br>.
+   * ---------------------------------------------------------------------- */
+  function richText(value, inlineStyle, extraClass) {
+    const src = String(value == null ? "" : value).replace(/\r\n?/g, "\n");
+    if (!src.trim()) return "";
+    const cls = "edc-rich" + (extraClass ? " " + extraClass : "");
+    const styleAttr = inlineStyle ? ' style="' + esc(inlineStyle) + '"' : "";
+    return src.split(/\n{2,}/).map(function (para) {
+      const inner = esc(para.replace(/^\n+|\n+$/g, "")).replace(/\n/g, "<br>");
+      if (!inner) return "";
+      return '<p class="' + cls + '"' + styleAttr + ">" + inner + "</p>";
+    }).join("");
   }
 
   function ctaHtml(data, st) {
@@ -208,7 +290,13 @@ const EDC_PUBLIC_PAGE = (() => {
     const data = parse(section.content_json, {});
     const st = parse(section.style_json, {});
     const type = String(section.type || "text").toLowerCase();
-    const image = safeImage(data.image_url || data.image || data.src);
+    let image = safeImage(data.image_url || data.image || data.src);
+    /* an advanced image / slideshow can supply the picture on its own */
+    if (!image) {
+      const advCfg = (st.image || {}).adv;
+      const first = advCfg && Array.isArray(advCfg.slides) ? advCfg.slides[0] : null;
+      if (first) image = safeImage(first.url);
+    }
 
     const open = '<section class="section edc-live-section edc-live-' + esc(type) + '" data-section-id="' + esc(section.section_id) + '" style="' + esc(sectionStyle(st)) + '"><div class="container" style="' + esc(innerStyle(st)) + '">';
     const close = "</div></section>";
@@ -233,7 +321,7 @@ const EDC_PUBLIC_PAGE = (() => {
       const reverse = st.reverse === true || data.reverse === true;
       const text = '<div class="edc-split-text">' +
         headingHtml(data, st, "h2") +
-        '<p class="muted"' + (elementStyle(st, "body") ? ' style="' + esc(elementStyle(st, "body")) + '"' : "") + ">" + esc(data.body || data.text || "") + "</p>" +
+        richText(data.body || data.text || "", elementStyle(st, "body"), "muted") +
         ctaHtml(data, st) + "</div>";
       const media = '<div class="edc-split-media">' + img(image, data.alt || data.title || "", st) + "</div>";
       return open + '<div class="edc-split" style="gap:' + cssUnit(st.gap || 40) + '">' +
@@ -271,7 +359,7 @@ const EDC_PUBLIC_PAGE = (() => {
           const itemLabel = item.eyebrow || item.label || item.tag || "";
           const itemCopy = (itemLabel ? '<span class="tag">' + esc(itemLabel) + "</span>" : "") +
             (item.title ? "<h3" + (titleEs ? ' style="' + esc(titleEs) + '"' : "") + ">" + esc(item.title) + "</h3>" : "") +
-            (item.text || item.body ? '<p class="muted"' + (textEs ? ' style="' + esc(textEs) + '"' : "") + ">" + esc(item.text || item.body) + "</p>" : "") +
+            richText(item.text || item.body || "", textEs, "muted") +
             (safeLink(item.url) ? '<a class="btn btn-outline btn-sm mt-4"' + (btnEs ? ' style="' + esc(btnEs) + '"' : "") + ' href="' + esc(safeLink(item.url)) + '">' + esc(item.cta_label || "Read more") + "</a>" : "");
           const mediaFirst = mediaPosition !== "right";
           return '<div class="card"' + (cardStyle ? ' style="' + esc(cardStyle) + '"' : "") + '><div class="card-body"' + (bodyStyle ? ' style="' + esc(bodyStyle) + '"' : "") + ">" +
@@ -391,7 +479,7 @@ const EDC_PUBLIC_PAGE = (() => {
       const data = parse(section.content_json, {});
       if (data.title || data.body) {
         cols.push("<div><h4>" + esc(data.title || "") + "</h4>" +
-          (data.body ? '<p style="max-width:280px;font-size:.85rem;">' + esc(data.body) + "</p>" : "") + "</div>");
+          richText(data.body, "max-width:280px;font-size:.85rem;", "") + "</div>");
       }
       (Array.isArray(data.groups) ? data.groups : []).forEach(function (g) {
         cols.push("<div><h4>" + esc(g.title || "") + "</h4>" +

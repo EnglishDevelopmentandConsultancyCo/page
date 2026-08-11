@@ -537,6 +537,50 @@ const EDC_PAGEBUILDER = (() => {
 
   /* ---- the inspector ---- */
 
+  /* ---- advanced image editor / slideshow (assets/js/image-editor.js) ----
+   * Additive: the fields above keep working exactly as before. This bar only
+   * adds an OPTIONAL editor for drag/zoom cropping and multi-image slideshows.
+   * The result is stored in style_json.image.adv.
+   * ---------------------------------------------------------------------- */
+  function advImageSummary(adv) {
+    if (!adv || !adv.slides || !adv.slides.length) return "No advanced settings — the image is shown as-is.";
+    const n = adv.slides.length;
+    return adv.mode === "slideshow" && n > 1
+      ? "Slideshow \u2022 " + n + " images \u2022 " + adv.duration + "s \u2022 " + adv.transition
+      : "Custom crop \u2022 1 image \u2022 zoom " + Math.round((adv.slides[0].zoom || 1) * 100) + "%";
+  }
+
+  function advImageBar(adv) {
+    return '<div class="pb-adv-image-bar">' +
+      '<button type="button" class="pb-btn pb-btn-sm" id="im-adv-open">Edit / adjust image\u2026</button>' +
+      '<span class="pb-adv-image-status" id="im-adv-status">' + esc(advImageSummary(adv)) + '</span>' +
+    '</div>';
+  }
+
+  function bindAdvImage(box, s, im) {
+    const btn = box.querySelector("#im-adv-open");
+    if (!btn) return;
+    state.advImage = im && im.adv ? im.adv : null;
+    btn.onclick = async function () {
+      if (typeof EDC_IMAGE_EDITOR === "undefined") {
+        return EDC_UI.toast("Image editor not loaded (assets/js/image-editor.js).", "error");
+      }
+      const seed = state.advImage
+        ? state.advImage
+        : { slides: [{ url: (val("in-image") || ""), alt: val("in-alt") || "" }].filter(function (x) { return x.url; }) };
+      const result = await EDC_IMAGE_EDITOR.open(seed);
+      if (result === null) return;                 /* cancelled — change nothing */
+      state.advImage = result === false ? null : result;  /* false = remove advanced settings */
+      const status = box.querySelector("#im-adv-status");
+      if (status) status.textContent = advImageSummary(state.advImage);
+      if (state.advImage && state.advImage.slides.length) {
+        const first = box.querySelector("#in-image");
+        if (first && !first.value.trim()) first.value = state.advImage.slides[0].url;
+      }
+      scheduleLivePreview();
+    };
+  }
+
   function renderInspector() {
     const box = root.querySelector("#pb-inspector");
     const s = state.sections.find(x => x.section_id === state.activeSectionId);
@@ -657,6 +701,7 @@ const EDC_PAGEBUILDER = (() => {
       (showImageTab ?
       '<div class="pb-tabpane" data-pane="image" hidden>' +
         '<p class="pb-hint">Resize, shape, and place the image exactly where you want it. Use zoom (object-fit) to control how the photo fills its frame.</p>' +
+        advImageBar(im.adv) +
         '<div class="pb-field-row">' +
           field("Image shape", select("im-shape", IMAGE_SHAPES, im.shape || "default")) +
           field("Zoom / crop mode", select("im-fit", [
@@ -732,6 +777,7 @@ const EDC_PAGEBUILDER = (() => {
     });
 
     bindItemsEditor(box);
+    bindAdvImage(box, s, im);
 
     /* Live preview on input changes */
     box.querySelectorAll(".pb-input, .pb-check input").forEach(function (inp) {
@@ -779,9 +825,10 @@ const EDC_PAGEBUILDER = (() => {
 
     const originalContent = parse(s.content_json);
     const content = Object.assign({}, originalContent);
-    function putContent(key, id) {
+    function putContent(key, id, keepWhitespace) {
       const input = root.querySelector("#" + id);
-      if (input) content[key] = input.value.trim();
+      /* Body text keeps the author's paragraph and line breaks exactly as typed. */
+      if (input) content[key] = keepWhitespace ? String(input.value).replace(/\r\n?/g, "\n") : input.value.trim();
     }
     if (s.type === "footer") {
       var groups = [];
@@ -799,7 +846,7 @@ const EDC_PAGEBUILDER = (() => {
     } else {
       putContent("eyebrow", "in-eyebrow");
       putContent("title", "in-title");
-      putContent("body", "in-body");
+      putContent("body", "in-body", true);
       putContent("cta_label", "in-cta-label");
       putContent("cta_url", "in-cta-url");
       putContent("image_url", "in-image");
@@ -872,7 +919,13 @@ const EDC_PAGEBUILDER = (() => {
       maybe(image, "marginTop", val("im-mt"));
       maybe(image, "marginBottom", val("im-mb"));
       if (checked("im-shadow")) image.shadow = true;
+      /* advanced crop / slideshow settings (optional, additive) */
+      if (state.advImage && state.advImage.slides && state.advImage.slides.length) {
+        image.adv = state.advImage;
+      }
       if (Object.keys(image).length) style.image = image;
+      else if (style.image) delete style.image;      /* everything cleared → drop it */
+      if (style.image && !state.advImage && style.image.adv) delete style.image.adv;
     }
 
     return {
@@ -908,6 +961,8 @@ const EDC_PAGEBUILDER = (() => {
     }).join("");
 
     frame.innerHTML = html;
+    /* Start any slideshows inside the preview so timing/transitions are visible. */
+    if (typeof EDC_SLIDESHOW !== "undefined") EDC_SLIDESHOW.init(frame);
   }
 
   function val(id) { const el = root.querySelector("#" + id); return el ? el.value.trim() : ""; }

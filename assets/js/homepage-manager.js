@@ -25,6 +25,19 @@
 const EDC_HOMEPAGE = (() => {
   const esc = (v) => EDC_UI.escapeHtml(v == null ? "" : String(v));
 
+  /* Keeps paragraph and line breaks typed by the editor: a blank line starts
+     a new paragraph, a single Enter becomes a line break. */
+  const rich = (v, cls, style) => {
+    const src = String(v == null ? "" : v).replace(/\r\n?/g, "\n");
+    if (!src.trim()) return "";
+    const c = "edc-rich" + (cls ? " " + cls : "");
+    const st = style ? ' style="' + esc(style) + '"' : "";
+    return src.split(/\n{2,}/).map(p => {
+      const inner = esc(p.replace(/^\n+|\n+$/g, "")).replace(/\n/g, "<br>");
+      return inner ? '<p class="' + c + '"' + st + ">" + inner + "</p>" : "";
+    }).join("");
+  };
+
   const DEFAULT_SECTIONS = [
     { id: "hero", label: "Hero Banner", visible: true },
     { id: "pagebuilder", label: "Page Builder Content", visible: true },
@@ -163,7 +176,7 @@ const EDC_HOMEPAGE = (() => {
         '<div>' +
           (hero.eyebrow ? '<span class="eyebrow">' + esc(hero.eyebrow) + '</span>' : '') +
           (hero.title ? '<h1>' + esc(hero.title) + '</h1>' : '') +
-          (hero.subtitle ? '<p class="lead">' + esc(hero.subtitle) + '</p>' : '') +
+          rich(hero.subtitle, 'lead', '') +
           '<div class="hero-actions">' +
             (hero.cta_primary_label ? '<a href="' + esc(hero.cta_primary_url || "#") + '" class="btn btn-gold">' + esc(hero.cta_primary_label) + '</a>' : '') +
             (hero.cta_secondary_label ? '<a href="' + esc(hero.cta_secondary_url || "#") + '" class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.5)">' + esc(hero.cta_secondary_label) + '</a>' : '') +
@@ -204,7 +217,7 @@ const EDC_HOMEPAGE = (() => {
       '<div class="card"><div class="card-body">' +
         '<div style="font-size:1.8rem;margin-bottom:.75rem;">' + esc(s.icon || "•") + '</div>' +
         '<h3>' + esc(s.title) + '</h3>' +
-        '<p class="muted" style="font-size:.9rem;">' + esc(s.short) + '</p>' +
+        rich(s.short, 'muted', 'font-size:.9rem') +
       '</div></div>'
     ).join("");
     return '<section class="section"><div class="container">' +
@@ -237,7 +250,7 @@ const EDC_HOMEPAGE = (() => {
     return '<section class="section"><div class="container">' +
       '<div class="cta-band" style="background:' + esc(fc.background) + ';color:' + esc(fc.color) + ';font-family:' + esc(fc.font) + ';font-size:' + esc(fc.font_size) + 'px;">' +
         '<div><h2 style="color:' + esc(fc.color) + '">Ready to teach in Thailand?</h2>' +
-        '<p>' + esc(fc.text) + '</p></div>' +
+        rich(fc.text, '', '') + '</div>' +
         '<a href="' + esc(fc.button_url) + '" class="btn btn-gold">' + esc(fc.button_label) + '</a>' +
       '</div></div></section>';
   }
@@ -245,7 +258,7 @@ const EDC_HOMEPAGE = (() => {
   async function renderTestimonials() {
     const testimonials = (await EDC_API.getTestimonials()).data || [];
     const cards = testimonials.map(t =>
-      '<blockquote class="testimonial"><p>"' + esc(t.quote) + '"</p>' +
+      '<blockquote class="testimonial">' + rich('"' + (t.quote || "") + '"', '', '') +
       '<footer><strong>' + esc(t.name) + '</strong><br>' + esc(t.role) + '</footer></blockquote>'
     ).join("");
     return '<section class="section section-alt"><div class="container">' +
@@ -475,7 +488,7 @@ const EDC_HOMEPAGE = (() => {
     preview.innerHTML =
       '<div class="cta-band" style="background:' + esc(fc.background) + ';color:' + esc(fc.color) + ';font-family:' + esc(fc.font) + ';font-size:' + esc(fc.font_size) + 'px;margin-top:1rem;">' +
         '<div><h2 style="color:' + esc(fc.color) + '">Ready to teach in Thailand?</h2>' +
-        '<p>' + esc(fc.text || "Preview text will appear here.") + '</p></div>' +
+        rich(fc.text || "Preview text will appear here.", '', '') + '</div>' +
         '<a href="' + esc(fc.button_url || "#") + '" class="btn btn-gold">' + esc(fc.button_label || "Button") + '</a>' +
       '</div>';
   }
