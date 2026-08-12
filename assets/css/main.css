@@ -464,3 +464,19 @@ body.has-demo-flag .admin-shell { padding-top: 28px; }
 .edc-btn-sm{font-size:13px;padding:4px 10px}
 .edc-btn-danger{color:#b91c1c;border-color:#b91c1c}
 .edc-btn-primary{background:var(--primary,#111);color:#fff}
+
+/* ------------------------------------------------------------------
+ * Page Builder: decorative photos / icons + rich text whitespace
+ * (added by the Icons & Photos feature — safe, additive only)
+ * ------------------------------------------------------------------ */
+p.edc-rich, .edc-rich { white-space: pre-wrap; }
+
+.edc-deco { display: block; }
+.edc-deco img.edc-deco-img { display: inline-block; max-width: 100%; }
+.edc-deco-icon { display: inline-block; line-height: 1; }
+.edc-inline-icon { display: inline-block; }
+.edc-deco-aboveEyebrow { margin-bottom: 12px; }
+.edc-deco-belowButtons { margin-top: 18px; }
+@media (max-width: 620px) {
+  .edc-deco img.edc-deco-img { max-width: 70%; height: auto; }
+}

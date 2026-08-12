@@ -406,3 +406,26 @@ p.edc-rich:last-child, .edc-rich:last-child {
 .hp-admin-card .mt-6 { margin-top: 24px; }
 .hp-admin-card .mb-2 { margin-bottom: 8px; }
 .hp-admin-card .mt-2 { margin-top: 8px; }
+
+/* ------------------------------------------------------------------
+ * Page Builder: decorative photos / icons + rich text whitespace
+ * (added by the Icons & Photos feature — safe, additive only)
+ * ------------------------------------------------------------------ */
+p.edc-rich, .edc-rich { white-space: pre-wrap; }
+
+.edc-deco { display: block; }
+.edc-deco img.edc-deco-img { display: inline-block; max-width: 100%; }
+.edc-deco-icon { display: inline-block; line-height: 1; }
+.edc-inline-icon { display: inline-block; }
+.edc-deco-aboveEyebrow { margin-bottom: 12px; }
+.edc-deco-belowButtons { margin-top: 18px; }
+@media (max-width: 620px) {
+  .edc-deco img.edc-deco-img { max-width: 70%; height: auto; }
+}
+
+/* Icons & Photos tab in the inspector */
+.pb-deco-group .pb-elem-body > .pb-hint { margin-top: 0; }
+.pb-deco-group.is-customized > .pb-elem-head .pb-elem-name { font-weight: 700; }
+.pb-design-sep-sm { margin-top: 14px; }
+.pb-design-sep-sm span { font-size: .78rem; }
+.pb-deco-image-fields[hidden], .pb-deco-icon-fields[hidden] { display: none !important; }

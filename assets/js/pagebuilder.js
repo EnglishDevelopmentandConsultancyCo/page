@@ -75,6 +75,52 @@ const EDC_PAGEBUILDER = (() => {
     { value: "square", label: "Square (sharp edges)" }
   ];
 
+  /* ---- decorative photo / icon slots (Icons & Photos tab) ---- */
+  const DECO_SLOTS = [
+    { id: "aboveEyebrow", label: "1. Above the Eyebrow / Kicker",
+      desc: "Sits at the very top of the section, above the small label. Best for a small logo, badge or icon." },
+    { id: "aboveHeading", label: "2. Above the Main Heading",
+      desc: "Sits between the eyebrow and the main title. Best for an icon or a medium picture that introduces the heading." },
+    { id: "belowBody",    label: "3. Below the Body Text",
+      desc: "Sits under the paragraphs and above the buttons. Best for an illustration, signature or a supporting photo." },
+    { id: "belowButtons", label: "4. Below the Primary / Secondary Buttons",
+      desc: "Sits at the very bottom of the section, under the buttons. Best for trust badges, partner logos or a decorative shape." }
+  ];
+
+  const CARD_DECO_SLOTS = [
+    { id: "cardAboveTitle", label: "Cards — Above every Card Title",
+      desc: "Shown inside each card, above the card title. Great for a small round icon or avatar-style photo." },
+    { id: "cardBelowText",  label: "Cards — Below every Card Text",
+      desc: "Shown inside each card, under the card text and above the card button." }
+  ];
+
+  const INLINE_ICON_KEYS = [
+    { id: "eyebrow",   label: "Small icon before the Eyebrow / Kicker" },
+    { id: "heading",   label: "Small icon before the Main Heading" },
+    { id: "cardTitle", label: "Small icon before every Card Title" }
+  ];
+
+  const DECO_MODES = [
+    { value: "", label: "None (nothing shown)" },
+    { value: "image", label: "Photo / picture (image URL)" },
+    { value: "icon", label: "Icon or symbol (emoji / character)" }
+  ];
+
+  const DECO_FITS = [
+    { value: "", label: "Automatic (recommended)" },
+    { value: "contain", label: "Fit whole image (best for transparent PNG / logos)" },
+    { value: "cover", label: "Fill & crop the frame" },
+    { value: "fill", label: "Stretch to fill" },
+    { value: "none", label: "Original size" },
+    { value: "scale-down", label: "Scale down only" }
+  ];
+
+  const DECO_ALIGNS = [
+    { value: "left", label: "Left" },
+    { value: "center", label: "Center" },
+    { value: "right", label: "Right" }
+  ];
+
   const ELEMENT_KEYS = [
     { id: "eyebrow",     label: "Eyebrow / Kicker (small label above heading)" },
     { id: "heading",     label: "Heading (main title)" },
@@ -463,6 +509,107 @@ const EDC_PAGEBUILDER = (() => {
     return elems.map(function (k) { return elementStyleControls(k, st); }).join("");
   }
 
+  /* ---- decorative photo / icon controls (detailed, labelled) ---- */
+
+  function decoControls(slot, st, isCard) {
+    const all = (st && st.decorations) || {};
+    const d = all[slot.id] || {};
+    const on = !!d.mode;
+    const defW = isCard ? "72" : "120";
+    const defSize = isCard ? "26" : "32";
+    return '<details class="pb-elem-group pb-deco-group' + (on ? " is-customized" : "") + '" data-deco="' + slot.id + '"' + (on ? " open" : "") + '>' +
+      '<summary class="pb-elem-head"><span class="pb-elem-name">' + esc(slot.label) + '</span>' +
+        (on ? '<span class="pb-elem-badge">In use</span>' : '') + '</summary>' +
+      '<div class="pb-elem-body">' +
+        '<p class="pb-hint">' + esc(slot.desc) + '</p>' +
+        field("What to show here", select("dc-" + slot.id + "-mode", DECO_MODES, d.mode || "")) +
+        '<div class="pb-deco-image-fields">' +
+          field("Photo / picture URL (PNG with transparency works best)", text("dc-" + slot.id + "-url", d.url, "https://\u2026 or assets/img/logo.png")) +
+          field("Photo description (alt text, for accessibility)", text("dc-" + slot.id + "-alt", d.alt, "e.g. EDC logo")) +
+          '<div class="pb-field-row">' +
+            field("Width (px or %)", num("dc-" + slot.id + "-width", d.width, "default " + defW + "px")) +
+            field("Height (px, leave empty to keep proportions)", num("dc-" + slot.id + "-height", d.height, "auto")) +
+          '</div>' +
+          '<div class="pb-field-row">' +
+            field("Shape", select("dc-" + slot.id + "-shape", IMAGE_SHAPES, d.shape || "default")) +
+            field("Corner radius (px, for custom shapes)", num("dc-" + slot.id + "-radius", d.radius, "16")) +
+          '</div>' +
+          field("How the photo fills its frame", select("dc-" + slot.id + "-fit", DECO_FITS, d.fit || "")) +
+          checkbox("dc-" + slot.id + "-transparent", d.transparent, "Transparent background (keep PNG / logo transparency \u2014 no cropping, no fill colour)") +
+          checkbox("dc-" + slot.id + "-shadow", d.shadow, "Drop shadow behind the photo") +
+        '</div>' +
+        '<div class="pb-deco-icon-fields">' +
+          field("Icon or symbol (paste an emoji or character)", text("dc-" + slot.id + "-icon", d.icon, "\u2b50 \u2714 \u2192 \u2665 \u25cf")) +
+          '<div class="pb-field-row">' +
+            field("Icon size (px)", num("dc-" + slot.id + "-size", d.size, "default " + defSize)) +
+            field("Icon colour", color("dc-" + slot.id + "-color", d.color, "#c9a227")) +
+          '</div>' +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Placement (left / center / right)", select("dc-" + slot.id + "-align", DECO_ALIGNS, d.align || "left")) +
+          field("Opacity (0.1 \u2013 1)", num("dc-" + slot.id + "-opacity", d.opacity, "1")) +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Blur (px, 0 = sharp)", num("dc-" + slot.id + "-blur", d.blur, "0")) +
+          field("Black & white (0 \u2013 100%)", num("dc-" + slot.id + "-grayscale", d.grayscale, "0")) +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Rotate (degrees)", num("dc-" + slot.id + "-rotate", d.rotate, "0")) +
+          field("Space above (px)", num("dc-" + slot.id + "-mt", d.marginTop, "0")) +
+        '</div>' +
+        field("Space below (px)", num("dc-" + slot.id + "-mb", d.marginBottom, isCard ? "10" : "14")) +
+        '<button type="button" class="pb-btn pb-btn-sm pb-btn-ghost pb-deco-reset" data-deco="' + slot.id + '">Remove this photo / icon</button>' +
+      '</div>' +
+    '</details>';
+  }
+
+  function inlineIconControls(key, st) {
+    const all = (st && st.inlineIcons) || {};
+    const d = all[key.id] || {};
+    const on = !!d.mode;
+    return '<details class="pb-elem-group pb-deco-group' + (on ? " is-customized" : "") + '" data-icon="' + key.id + '"' + (on ? " open" : "") + '>' +
+      '<summary class="pb-elem-head"><span class="pb-elem-name">' + esc(key.label) + '</span>' +
+        (on ? '<span class="pb-elem-badge">In use</span>' : '') + '</summary>' +
+      '<div class="pb-elem-body">' +
+        '<p class="pb-hint">Optional. The icon sits on the same line, right before the text. By default it is exactly the same size as the text (1em) \u2014 type a bigger value below to enlarge it.</p>' +
+        field("What to show", select("ic-" + key.id + "-mode", [
+          { value: "", label: "None" },
+          { value: "icon", label: "Icon or symbol (emoji / character)" },
+          { value: "image", label: "Small picture (image URL)" }
+        ], d.mode || "")) +
+        field("Icon or symbol", text("ic-" + key.id + "-icon", d.icon, "\u2b50 \u2714 \u2192 \u25b8")) +
+        field("Small picture URL (transparent PNG recommended)", text("ic-" + key.id + "-url", d.url, "assets/img/icon.png")) +
+        '<div class="pb-field-row">' +
+          field("Size (empty = same as text, or e.g. 24)", num("ic-" + key.id + "-size", d.size, "1em")) +
+          field("Gap before the text (px)", num("ic-" + key.id + "-gap", d.gap, "8")) +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Icon colour", color("ic-" + key.id + "-color", d.color, "#c9a227")) +
+          field("Opacity (0.1 \u2013 1)", num("ic-" + key.id + "-opacity", d.opacity, "1")) +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Blur (px)", num("ic-" + key.id + "-blur", d.blur, "0")) +
+          field("Rotate (degrees)", num("ic-" + key.id + "-rotate", d.rotate, "0")) +
+        '</div>' +
+        '<button type="button" class="pb-btn pb-btn-sm pb-btn-ghost pb-icon-reset" data-icon="' + key.id + '">Remove this icon</button>' +
+      '</div>' +
+    '</details>';
+  }
+
+  function decoTabFields(type, st) {
+    var html = '<p class="pb-hint">Add a photo, logo or icon <strong>above the eyebrow</strong>, <strong>above the main heading</strong>, <strong>below the body text</strong> or <strong>below the buttons</strong>. Every slot can be resized, reshaped, faded, blurred, rotated, kept transparent, and placed left, center or right. Leave a size empty to use the recommended default that matches the design.</p>';
+    html += '<div class="pb-design-sep"><span>Section photos &amp; icons</span><small>Four placement slots</small></div>';
+    html += DECO_SLOTS.map(function (slot) { return decoControls(slot, st, false); }).join("");
+    if (type === "grid") {
+      html += '<div class="pb-design-sep"><span>Card photos &amp; icons</span><small>Applied inside every card of this grid</small></div>';
+      html += CARD_DECO_SLOTS.map(function (slot) { return decoControls(slot, st, true); }).join("");
+    }
+    html += '<div class="pb-design-sep"><span>Small inline icons before titles</span><small>Optional \u2014 matches the text size by default</small></div>';
+    html += INLINE_ICON_KEYS.filter(function (k) { return k.id !== "cardTitle" || type === "grid"; })
+      .map(function (k) { return inlineIconControls(k, st); }).join("");
+    return html;
+  }
+
   /* ---- footer editor ---- */
 
   function footerEditor(c) {
@@ -628,6 +775,7 @@ const EDC_PAGEBUILDER = (() => {
     /* Determine which tabs to show */
     var showImageTab = s.type !== "footer";
     var showDesignTab = s.type !== "html" && s.type !== "spacer";
+    var showDecoTab = s.type !== "html" && s.type !== "spacer" && s.type !== "footer";
 
     /* Design tab: section-level layout + per-element styling */
     var designFields = "";
@@ -679,7 +827,23 @@ const EDC_PAGEBUILDER = (() => {
                   { value: "justify", label: "Justify" }
                 ], st.cardAlign || "")) +
               '</div>' +
-              checkbox("st-card-height", st.equalCardHeight !== false, "Keep cards the same height") : '') +
+              checkbox("st-card-height", st.equalCardHeight !== false, "Keep cards the same height") +
+              '<div class="pb-design-sep pb-design-sep-sm"><span>Card edges (border)</span><small>Thickness, style and colour of the card outline</small></div>' +
+              '<div class="pb-field-row">' +
+                field("Edge thickness (px, 0 = no line)", num("st-card-bw", st.cardBorderWidth, "1")) +
+                field("Edge style", select("st-card-bs", [
+                  { value: "", label: "Solid (default)" },
+                  { value: "solid", label: "Solid line" },
+                  { value: "dashed", label: "Dashed line" },
+                  { value: "dotted", label: "Dotted line" },
+                  { value: "double", label: "Double line" },
+                  { value: "none", label: "No edge at all" }
+                ], st.cardBorderStyle || "")) +
+              '</div>' +
+              '<div class="pb-field-row">' +
+                field("Edge colour", color("st-card-bc", st.cardBorderColor, "#e5e7eb")) +
+                field("Card corner radius (px)", num("st-card-radius", st.cardRadius, "12")) +
+              '</div>' : '') +
             field("Button style", select("st-btn", [
               { value: "btn-gold", label: "Gold button" },
               { value: "btn-primary", label: "Navy button" },
@@ -699,9 +863,11 @@ const EDC_PAGEBUILDER = (() => {
 
       '<div class="pb-tabs"><button class="pb-tab is-active" data-tab="content">Content</button>' +
       (showDesignTab ? '<button class="pb-tab" data-tab="design">Design</button>' : '') +
-      (showImageTab ? '<button class="pb-tab" data-tab="image">Image</button>' : '') + '</div>' +
+      (showImageTab ? '<button class="pb-tab" data-tab="image">Image</button>' : '') +
+      (showDecoTab ? '<button class="pb-tab" data-tab="deco">Icons &amp; Photos</button>' : '') + '</div>' +
 
       '<div class="pb-tabpane" data-pane="content">' + contentFields + '</div>' +
+      (showDecoTab ? '<div class="pb-tabpane" data-pane="deco" hidden>' + decoTabFields(s.type, st) + '</div>' : '') +
       (showDesignTab ? '<div class="pb-tabpane" data-pane="design" hidden>' + designFields + '</div>' : '') +
       (showImageTab ?
       '<div class="pb-tabpane" data-pane="image" hidden>' +
@@ -748,6 +914,13 @@ const EDC_PAGEBUILDER = (() => {
           field("Space below (px)", num("im-mb", im.marginBottom, "0")) +
           checkbox("im-shadow", im.shadow, "Drop shadow") +
         '</div>' +
+        '<div class="pb-design-sep pb-design-sep-sm"><span>Photo effects</span><small>Blur, fade, black &amp; white, transparency</small></div>' +
+        '<div class="pb-field-row">' +
+          field("Blur (px, 0 = sharp)", num("im-blur", im.blur, "0")) +
+          field("Opacity / fade (0.1 \u2013 1)", num("im-opacity", im.opacity, "1")) +
+        '</div>' +
+        field("Black &amp; white (0 \u2013 100%)", num("im-grayscale", im.grayscale, "0")) +
+        checkbox("im-transparent", im.transparent, "Transparent background (keep PNG transparency \u2014 no fill colour behind the photo)") +
       '</div>' : '');
 
     /* Show section type description in content tab */
@@ -781,6 +954,25 @@ const EDC_PAGEBUILDER = (() => {
       };
     });
 
+    /* Icons & Photos: reset buttons and show/hide the irrelevant field groups */
+    box.querySelectorAll(".pb-deco-reset, .pb-icon-reset").forEach(function (btn) {
+      btn.onclick = function () {
+        var wrap = btn.closest("details");
+        if (!wrap) return;
+        wrap.querySelectorAll("input, select").forEach(function (inp) {
+          if (inp.type === "checkbox") inp.checked = false;
+          else if (inp.tagName === "SELECT") inp.selectedIndex = 0;
+          else if (inp.type !== "color") inp.value = "";
+        });
+        refreshDecoVisibility(box);
+        scheduleLivePreview();
+      };
+    });
+    box.querySelectorAll('[id^="dc-"][id$="-mode"], [id^="ic-"][id$="-mode"]').forEach(function (sel) {
+      sel.addEventListener("change", function () { refreshDecoVisibility(box); });
+    });
+    refreshDecoVisibility(box);
+
     bindItemsEditor(box);
     bindAdvImage(box, s, im);
 
@@ -813,6 +1005,27 @@ const EDC_PAGEBUILDER = (() => {
     }
 
     box.querySelector("#in-save").onclick = () => saveSection(s);
+  }
+
+  /* ---- show only the fields that matter for the chosen mode ---- */
+  function refreshDecoVisibility(box) {
+    box.querySelectorAll("details[data-deco]").forEach(function (d) {
+      var mode = (d.querySelector('[id$="-mode"]') || {}).value || "";
+      var imgFields = d.querySelector(".pb-deco-image-fields");
+      var iconFields = d.querySelector(".pb-deco-icon-fields");
+      if (imgFields) imgFields.hidden = mode !== "image";
+      if (iconFields) iconFields.hidden = mode !== "icon";
+      d.classList.toggle("is-customized", !!mode);
+    });
+    box.querySelectorAll("details[data-icon]").forEach(function (d) {
+      var mode = (d.querySelector('[id$="-mode"]') || {}).value || "";
+      d.querySelectorAll(".pb-field").forEach(function (f) {
+        var label = (f.querySelector("span") || {}).textContent || "";
+        if (/Icon or symbol|Icon colour/.test(label)) f.hidden = mode !== "icon";
+        if (/Small picture URL/.test(label)) f.hidden = mode !== "image";
+      });
+      d.classList.toggle("is-customized", !!mode);
+    });
   }
 
   /* ---- schedule live preview update (debounced) ---- */
@@ -864,10 +1077,12 @@ const EDC_PAGEBUILDER = (() => {
         content.items = Array.prototype.map.call(box.querySelectorAll(".pb-grid-item"), function (el) {
           var i = el.dataset.ii;
           var item = Object.assign({}, originalItems[Number(i)] || {});
+          /* card text keeps the author's paragraph and line breaks */
+          const textInput = root.querySelector("#it-text-" + i);
+          if (textInput) item.text = String(textInput.value).replace(/\r\n?/g, "\n");
           [
             ["eyebrow", "it-eyebrow-" + i],
             ["title", "it-title-" + i],
-            ["text", "it-text-" + i],
             ["align", "it-align-" + i],
             ["layout", "it-layout-" + i],
             ["image_position", "it-image-position-" + i],
@@ -905,10 +1120,24 @@ const EDC_PAGEBUILDER = (() => {
     if (checked("st-reverse")) style.reverse = true;
     if ((val("in-type") || s.type) === "html") style.allowHtml = true;
 
+    maybe(style, "cardBorderWidth", val("st-card-bw"));
+    maybe(style, "cardBorderStyle", val("st-card-bs"));
+    maybe(style, "cardBorderColor", val("st-card-bc"));
+    maybe(style, "cardRadius", val("st-card-radius"));
+
     const newType = val("in-type") || s.type;
     if (newType !== "footer" && newType !== "html" && newType !== "spacer") {
       const elements = collectElementStyles(newType);
       if (Object.keys(elements).length) style.elements = elements;
+      /* photos / icons in the four placement slots + inline title icons */
+      if (root.querySelector('[id^="dc-"]')) {
+        const decorations = collectDecorations(newType);
+        if (Object.keys(decorations).length) style.decorations = decorations;
+        else delete style.decorations;
+        const inlineIcons = collectInlineIcons(newType);
+        if (Object.keys(inlineIcons).length) style.inlineIcons = inlineIcons;
+        else delete style.inlineIcons;
+      }
     }
 
     if (s.type !== "footer") {
@@ -923,7 +1152,11 @@ const EDC_PAGEBUILDER = (() => {
       maybe(image, "align", val("im-align"));
       maybe(image, "marginTop", val("im-mt"));
       maybe(image, "marginBottom", val("im-mb"));
+      maybe(image, "blur", val("im-blur"));
+      maybe(image, "opacity", val("im-opacity"));
+      maybe(image, "grayscale", val("im-grayscale"));
       if (checked("im-shadow")) image.shadow = true;
+      if (checked("im-transparent")) image.transparent = true;
       /* advanced crop / slideshow settings (optional, additive) */
       if (state.advImage && state.advImage.slides && state.advImage.slides.length) {
         image.adv = state.advImage;
@@ -973,6 +1206,75 @@ const EDC_PAGEBUILDER = (() => {
   function val(id) { const el = root.querySelector("#" + id); return el ? el.value.trim() : ""; }
   function checked(id) { const el = root.querySelector("#" + id); return !!(el && el.checked); }
   function maybe(obj, key, v) { if (v !== "" && v !== undefined && v !== null) obj[key] = v; }
+
+  /* ---- collect the Icons & Photos tab into style_json ---- */
+  function collectDecorations(type) {
+    const slots = DECO_SLOTS.concat(type === "grid" ? CARD_DECO_SLOTS : []);
+    const out = {};
+    slots.forEach(function (slot) {
+      const id = slot.id;
+      const mode = val("dc-" + id + "-mode");
+      if (mode !== "image" && mode !== "icon") return;
+      const d = { mode: mode };
+      if (mode === "image") {
+        const url = val("dc-" + id + "-url");
+        if (!url) return;
+        d.url = url;
+        maybe(d, "alt", val("dc-" + id + "-alt"));
+        maybe(d, "width", val("dc-" + id + "-width"));
+        maybe(d, "height", val("dc-" + id + "-height"));
+        const shape = val("dc-" + id + "-shape");
+        if (shape && shape !== "default") d.shape = shape;
+        maybe(d, "radius", val("dc-" + id + "-radius"));
+        maybe(d, "fit", val("dc-" + id + "-fit"));
+        if (checked("dc-" + id + "-transparent")) d.transparent = true;
+        if (checked("dc-" + id + "-shadow")) d.shadow = true;
+      } else {
+        const glyph = val("dc-" + id + "-icon");
+        if (!glyph) return;
+        d.icon = glyph;
+        maybe(d, "size", val("dc-" + id + "-size"));
+        maybe(d, "color", val("dc-" + id + "-color"));
+      }
+      maybe(d, "align", val("dc-" + id + "-align"));
+      maybe(d, "opacity", val("dc-" + id + "-opacity"));
+      maybe(d, "blur", val("dc-" + id + "-blur"));
+      maybe(d, "grayscale", val("dc-" + id + "-grayscale"));
+      maybe(d, "rotate", val("dc-" + id + "-rotate"));
+      maybe(d, "marginTop", val("dc-" + id + "-mt"));
+      maybe(d, "marginBottom", val("dc-" + id + "-mb"));
+      out[id] = d;
+    });
+    return out;
+  }
+
+  function collectInlineIcons(type) {
+    const out = {};
+    INLINE_ICON_KEYS.forEach(function (key) {
+      const id = key.id;
+      if (id === "cardTitle" && type !== "grid") return;
+      const mode = val("ic-" + id + "-mode");
+      if (mode !== "icon" && mode !== "image") return;
+      const d = { mode: mode };
+      if (mode === "icon") {
+        const glyph = val("ic-" + id + "-icon");
+        if (!glyph) return;
+        d.icon = glyph;
+        maybe(d, "color", val("ic-" + id + "-color"));
+      } else {
+        const url = val("ic-" + id + "-url");
+        if (!url) return;
+        d.url = url;
+      }
+      maybe(d, "size", val("ic-" + id + "-size"));
+      maybe(d, "gap", val("ic-" + id + "-gap"));
+      maybe(d, "opacity", val("ic-" + id + "-opacity"));
+      maybe(d, "blur", val("ic-" + id + "-blur"));
+      maybe(d, "rotate", val("ic-" + id + "-rotate"));
+      out[id] = d;
+    });
+    return out;
+  }
 
   function collectElementStyles(type) {
     const elems = elementsForType(type);

@@ -65,6 +65,11 @@ const EDC_PUBLIC_PAGE = (() => {
 
   /* ---------------- style engine ---------------- */
 
+  function numOr(v, d) {
+    const n = parseFloat(v);
+    return isFinite(n) ? n : d;
+  }
+
   function cssUnit(v) {
     if (v === undefined || v === null || v === "") return "";
     return /^-?\d+(\.\d+)?$/.test(String(v)) ? v + "px" : String(v);
@@ -152,6 +157,13 @@ const EDC_PUBLIC_PAGE = (() => {
     if (i.fit && shape !== "circle") s.push("object-fit:" + i.fit);
     if (i.position) s.push("object-position:" + i.position);
     if (i.shadow) s.push("box-shadow:0 18px 40px rgba(15,23,42,.18)");
+    /* photo effects: blur, fade and transparency */
+    const ifilter = [];
+    if (numOr(i.blur, 0) > 0) ifilter.push("blur(" + numOr(i.blur, 0) + "px)");
+    if (numOr(i.grayscale, 0) > 0) ifilter.push("grayscale(" + Math.min(100, numOr(i.grayscale, 0)) + "%)");
+    if (ifilter.length) { s.push("filter:" + ifilter.join(" ")); s.push("-webkit-filter:" + ifilter.join(" ")); }
+    if (numOr(i.opacity, 1) >= 0 && numOr(i.opacity, 1) < 1) s.push("opacity:" + numOr(i.opacity, 1));
+    if (i.transparent) s.push("background:transparent");
     if (i.align === "center") s.push("margin-left:auto;margin-right:auto");
     else if (i.align === "right") s.push("margin-left:auto;margin-right:0");
     else s.push("margin-left:0;margin-right:auto");
@@ -214,6 +226,11 @@ const EDC_PUBLIC_PAGE = (() => {
     else if (shape === "square") box.push("border-radius:0");
     else if (i.radius) box.push("border-radius:" + cssUnit(i.radius));
     if (i.shadow) box.push("box-shadow:0 18px 40px rgba(15,23,42,.18)");
+    const bfilter = [];
+    if (numOr(i.blur, 0) > 0) bfilter.push("blur(" + numOr(i.blur, 0) + "px)");
+    if (numOr(i.grayscale, 0) > 0) bfilter.push("grayscale(" + Math.min(100, numOr(i.grayscale, 0)) + "%)");
+    if (bfilter.length) { box.push("filter:" + bfilter.join(" ")); box.push("-webkit-filter:" + bfilter.join(" ")); }
+    if (numOr(i.opacity, 1) >= 0 && numOr(i.opacity, 1) < 1) box.push("opacity:" + numOr(i.opacity, 1));
     if (i.align === "center") box.push("margin-left:auto;margin-right:auto");
     else if (i.align === "right") box.push("margin-left:auto;margin-right:0");
     else box.push("margin-left:0;margin-right:auto");
@@ -232,19 +249,158 @@ const EDC_PUBLIC_PAGE = (() => {
       ' style="' + esc(box.join(";")) + '">' + inner + "</div>";
   }
 
+  /* ---- decorative photos / icons (Page Builder "Icons & Photos" tab) -------
+   * style_json.decorations = {
+   *   aboveEyebrow | aboveHeading | belowBody | belowButtons |
+   *   cardAboveTitle | cardBelowText : {
+   *     mode: "image" | "icon",
+   *     url, alt,                        (image mode)
+   *     icon,                            (icon mode - emoji / symbol / letter)
+   *     width, height, size, shape, radius, fit,
+   *     transparent, opacity, blur, grayscale, rotate,
+   *     align, marginTop, marginBottom, shadow, color
+   *   }
+   * }
+   * Sections saved before this feature have no `decorations` key and render
+   * exactly as they always did.
+   * ---------------------------------------------------------------------- */
+
+  const DECO_FALLBACK = {
+    section: { imageWidth: 120, iconSize: 32, marginBottom: 14 },
+    card:    { imageWidth: 72,  iconSize: 26, marginBottom: 10 }
+  };
+
+  function decoFilter(d) {
+    const f = [];
+    const blur = numOr(d.blur, 0);
+    if (blur > 0) f.push("blur(" + blur + "px)");
+    const gray = numOr(d.grayscale, 0);
+    if (gray > 0) f.push("grayscale(" + Math.min(100, gray) + "%)");
+    return f.length ? "filter:" + f.join(" ") + ";-webkit-filter:" + f.join(" ") + ";" : "";
+  }
+
+  function decoOpacity(d) {
+    const o = numOr(d.opacity, 1);
+    return o >= 0 && o < 1 ? "opacity:" + o + ";" : "";
+  }
+
+  function decoRotate(d) {
+    const r = numOr(d.rotate, 0);
+    return r ? "transform:rotate(" + r + "deg);" : "";
+  }
+
+  function decoShape(d) {
+    const shape = enumValue(d.shape, ["default", "circle", "rounded", "square"], "default");
+    if (shape === "circle") return "border-radius:50%;";
+    if (shape === "rounded") return "border-radius:" + cssUnit(d.radius || 16) + ";";
+    if (shape === "square") return "border-radius:0;";
+    return d.radius ? "border-radius:" + cssUnit(d.radius) + ";" : "";
+  }
+
+  function decoHtml(st, slot, isCard) {
+    const all = (st && st.decorations) || {};
+    const d = all[slot];
+    if (!d) return "";
+    const mode = enumValue(d.mode, ["image", "icon"], "");
+    if (!mode || d.enabled === false) return "";
+    const def = isCard ? DECO_FALLBACK.card : DECO_FALLBACK.section;
+
+    const align = enumValue(d.align, ["left", "center", "right"], "left");
+    const wrap = [
+      "display:block",
+      "text-align:" + align,
+      "margin-top:" + cssUnit(numOr(d.marginTop, 0)),
+      "margin-bottom:" + cssUnit(d.marginBottom === "" || d.marginBottom == null ? def.marginBottom : numOr(d.marginBottom, def.marginBottom)),
+      "line-height:1"
+    ].join(";");
+
+    let inner = "";
+    if (mode === "icon") {
+      const glyph = String(d.icon || "").slice(0, 8);
+      if (!glyph.trim()) return "";
+      const s = [
+        "display:inline-block",
+        "font-size:" + cssUnit(d.size || def.iconSize),
+        "line-height:1"
+      ];
+      if (d.color) s.push("color:" + d.color);
+      inner = '<span class="edc-deco-icon" aria-hidden="true" style="' +
+        esc(s.join(";") + ";" + decoOpacity(d) + decoRotate(d) + decoFilter(d)) + '">' + esc(glyph) + "</span>";
+    } else {
+      const url = safeImage(d.url);
+      if (!url) return "";
+      const s = [
+        "display:inline-block",
+        "max-width:100%",
+        "width:" + cssUnit(d.width || def.imageWidth)
+      ];
+      if (d.height) s.push("height:" + cssUnit(d.height));
+      else if (enumValue(d.shape, ["default", "circle", "rounded", "square"], "default") === "circle") {
+        /* a circle needs a square frame, so match the height to the width */
+        s.push("height:" + cssUnit(d.width || def.imageWidth));
+      } else s.push("height:auto");
+      s.push("object-fit:" + enumValue(d.fit, ["cover", "contain", "fill", "none", "scale-down"], d.transparent ? "contain" : "cover"));
+      if (d.transparent) s.push("background:transparent");
+      if (d.shadow) s.push("box-shadow:0 12px 30px rgba(15,23,42,.18)");
+      inner = '<img class="edc-deco-img" loading="lazy" src="' + esc(url) + '" alt="' + esc(d.alt || "") +
+        '" style="' + esc(s.join(";") + ";" + decoShape(d) + decoOpacity(d) + decoRotate(d) + decoFilter(d)) + '">';
+    }
+    return '<div class="edc-deco edc-deco-' + esc(slot) + '" style="' + esc(wrap) + '">' + inner + "</div>";
+  }
+
+  /* ---- small inline icon placed BEFORE a heading / title ------------------
+   * style_json.inlineIcons = {
+   *   eyebrow | heading | cardTitle : {
+   *     mode:"icon"|"image", icon, url, size ("1em" by default), color, gap,
+   *     opacity, blur, rotate, shape, radius
+   *   }
+   * }
+   * Default size is 1em so the icon matches the text size exactly; set a value
+   * to make it bigger or smaller.
+   * ---------------------------------------------------------------------- */
+
+  function inlineIconHtml(st, key) {
+    const all = (st && st.inlineIcons) || {};
+    const d = all[key];
+    if (!d) return "";
+    const mode = enumValue(d.mode, ["icon", "image"], "");
+    if (!mode || d.enabled === false) return "";
+    const size = d.size ? cssUnit(d.size) : "1em";
+    const gap = cssUnit(d.gap === "" || d.gap == null ? 8 : numOr(d.gap, 8));
+
+    if (mode === "icon") {
+      const glyph = String(d.icon || "").slice(0, 8);
+      if (!glyph.trim()) return "";
+      const s = ["display:inline-block", "font-size:" + size, "line-height:1",
+        "margin-right:" + gap, "vertical-align:baseline"];
+      if (d.color) s.push("color:" + d.color);
+      return '<span class="edc-inline-icon" aria-hidden="true" style="' +
+        esc(s.join(";") + ";" + decoOpacity(d) + decoRotate(d) + decoFilter(d)) + '">' + esc(glyph) + "</span>";
+    }
+    const url = safeImage(d.url);
+    if (!url) return "";
+    const s = ["display:inline-block", "width:" + size, "height:" + size,
+      "object-fit:contain", "background:transparent",
+      "margin-right:" + gap, "vertical-align:-0.12em"];
+    return '<img class="edc-inline-icon" loading="lazy" src="' + esc(url) + '" alt="" style="' +
+      esc(s.join(";") + ";" + decoShape(d) + decoOpacity(d) + decoRotate(d) + decoFilter(d)) + '">';
+  }
+
   /* ---- element wrappers ---- */
 
   function eyebrowHtml(data, st) {
     if (!data.eyebrow) return "";
     const es = elementStyle(st, "eyebrow");
-    return '<span class="eyebrow"' + (es ? ' style="' + esc(es) + '"' : "") + ">" + esc(data.eyebrow) + "</span>";
+    return '<span class="eyebrow"' + (es ? ' style="' + esc(es) + '"' : "") + ">" +
+      inlineIconHtml(st, "eyebrow") + esc(data.eyebrow) + "</span>";
   }
 
   function headingHtml(data, st, tag) {
     const title = data.title || data.heading || "";
     if (!title) return "";
     const es = elementStyle(st, "heading");
-    return '<' + tag + (es ? ' style="' + esc(es) + '"' : "") + ">" + esc(title) + "</" + tag + ">";
+    return '<' + tag + (es ? ' style="' + esc(es) + '"' : "") + ">" +
+      inlineIconHtml(st, "heading") + esc(title) + "</" + tag + ">";
   }
 
   function bodyHtml(data, st) {
@@ -262,11 +418,15 @@ const EDC_PUBLIC_PAGE = (() => {
     const src = String(value == null ? "" : value).replace(/\r\n?/g, "\n");
     if (!src.trim()) return "";
     const cls = "edc-rich" + (extraClass ? " " + extraClass : "");
-    const styleAttr = inlineStyle ? ' style="' + esc(inlineStyle) + '"' : "";
+    /* Each blank line starts a new <p> (one stanza). Inside a stanza every
+     * single Enter is kept as a line break and every leading space the author
+     * typed is preserved, because the paragraph renders with pre-wrap. */
+    const preserve = "white-space:pre-wrap;";
+    const styleAttrPre = ' style="' + esc(preserve + (inlineStyle || "")) + '"';
     return src.split(/\n{2,}/).map(function (para) {
-      const inner = esc(para.replace(/^\n+|\n+$/g, "")).replace(/\n/g, "<br>");
-      if (!inner) return "";
-      return '<p class="' + cls + '"' + styleAttr + ">" + inner + "</p>";
+      const stanza = para.replace(/^\n+|\n+$/g, "");
+      if (!stanza.trim()) return "";
+      return '<p class="' + cls + '"' + styleAttrPre + ">" + esc(stanza) + "</p>";
     }).join("");
   }
 
@@ -316,26 +476,38 @@ const EDC_PUBLIC_PAGE = (() => {
 
     if (type === "hero") {
       return open +
+        decoHtml(st, "aboveEyebrow") +
         eyebrowHtml(data, st) +
+        decoHtml(st, "aboveHeading") +
         headingHtml(data, st, "h1") +
         bodyHtml(data, st) +
+        decoHtml(st, "belowBody") +
         (image ? '<div class="hero-photo">' + img(image, data.alt || data.title || "", st) + "</div>" : "") +
-        buttonsHtml(data, st) + close;
+        buttonsHtml(data, st) + decoHtml(st, "belowButtons") + close;
     }
 
     if (type === "image") {
       return open +
+        decoHtml(st, "aboveEyebrow") +
+        eyebrowHtml(data, st) +
+        decoHtml(st, "aboveHeading") +
         (data.title || data.heading ? '<div class="section-head">' + headingHtml(data, st, "h2") + "</div>" : "") +
         img(image, data.alt || data.title || "", st) +
-        bodyHtml(data, st) + buttonsHtml(data, st) + close;
+        bodyHtml(data, st) +
+        decoHtml(st, "belowBody") +
+        buttonsHtml(data, st) + decoHtml(st, "belowButtons") + close;
     }
 
     if (type === "split") {
       const reverse = st.reverse === true || data.reverse === true;
       const text = '<div class="edc-split-text">' +
+        decoHtml(st, "aboveEyebrow") +
+        eyebrowHtml(data, st) +
+        decoHtml(st, "aboveHeading") +
         headingHtml(data, st, "h2") +
         richText(data.body || data.text || "", elementStyle(st, "body"), "muted") +
-        buttonsHtml(data, st) + "</div>";
+        decoHtml(st, "belowBody") +
+        buttonsHtml(data, st) + decoHtml(st, "belowButtons") + "</div>";
       const media = '<div class="edc-split-media">' + img(image, data.alt || data.title || "", st) + "</div>";
       return open + '<div class="edc-split" style="gap:' + cssUnit(st.gap || 40) + '">' +
         (reverse ? media + text : text + media) + "</div>" + close;
@@ -351,8 +523,22 @@ const EDC_PUBLIC_PAGE = (() => {
       const gridStyle = cardLayout === "horizontal"
         ? "display:flex;flex-wrap:nowrap;overflow-x:auto;align-items:stretch;gap:" + cssUnit(st.gap || 24)
         : "display:grid;align-items:stretch;gap:" + cssUnit(st.gap || 24) + ";grid-template-columns:repeat(" + Math.max(1, cols) + ",minmax(0,1fr))";
+      /* card edge (border) controls — thickness, style and colour */
+      const cardBorder = (function () {
+        const w = st.cardBorderWidth;
+        const col = st.cardBorderColor;
+        const style = enumValue(st.cardBorderStyle, ["solid", "dashed", "dotted", "double", "none"], "");
+        const out = [];
+        if (w !== undefined && w !== null && w !== "") out.push("border-width:" + cssUnit(w) + ";border-style:" + (style || "solid") + ";");
+        else if (style) out.push("border-style:" + style + ";");
+        if (col) out.push("border-color:" + col + ";");
+        if (st.cardRadius !== undefined && st.cardRadius !== null && st.cardRadius !== "") out.push("border-radius:" + cssUnit(st.cardRadius) + ";");
+        return out.join("");
+      })();
       return open +
+        decoHtml(st, "aboveEyebrow") +
         (data.eyebrow ? eyebrowHtml(data, st) : "") +
+        decoHtml(st, "aboveHeading") +
         (data.title || data.heading ? '<div class="section-head">' + headingHtml(data, st, "h2") + "</div>" : "") +
         (data.body ? bodyHtml(data, st) : "") +
         '<div class="edc-live-grid' + gridClass + '" style="' + gridStyle + '">' +
@@ -364,15 +550,18 @@ const EDC_PUBLIC_PAGE = (() => {
           const itemLayout = enumValue(item.layout, ["stacked", "horizontal"], "stacked");
           const mediaPosition = enumValue(item.image_position || item.media_position, ["top", "left", "right", "hidden"], itemLayout === "horizontal" ? "left" : "top");
           const itemTextAlign = enumValue(item.align || item.text_align, ["left", "center", "right", "justify"], cardAlign);
-          const cardStyle = (equalCardHeight ? "height:100%;" : "") + (cardLayout === "horizontal" ? "flex:0 0 min(86vw,420px);" : "");
+          const cardStyle = (equalCardHeight ? "height:100%;" : "") + (cardLayout === "horizontal" ? "flex:0 0 min(86vw,420px);" : "") + cardBorder;
           const bodyStyle = "height:100%;" +
             (itemTextAlign ? "text-align:" + itemTextAlign + ";" : "") +
             (itemLayout === "horizontal" ? "display:flex;align-items:center;gap:16px;" : "");
           const itemImage = itemImg && mediaPosition !== "hidden" ? img(itemImg, item.alt || item.title || "", st) : "";
           const itemLabel = item.eyebrow || item.label || item.tag || "";
           const itemCopy = (itemLabel ? '<span class="tag">' + esc(itemLabel) + "</span>" : "") +
-            (item.title ? "<h3" + (titleEs ? ' style="' + esc(titleEs) + '"' : "") + ">" + esc(item.title) + "</h3>" : "") +
+            decoHtml(st, "cardAboveTitle", true) +
+            (item.title ? "<h3" + (titleEs ? ' style="' + esc(titleEs) + '"' : "") + ">" +
+              inlineIconHtml(st, "cardTitle") + esc(item.title) + "</h3>" : "") +
             richText(item.text || item.body || "", textEs, "muted") +
+            decoHtml(st, "cardBelowText", true) +
             (safeLink(item.url) ? '<a class="btn btn-outline btn-sm mt-4"' + (btnEs ? ' style="' + esc(btnEs) + '"' : "") + ' href="' + esc(safeLink(item.url)) + '">' + esc(item.cta_label || "Read more") + "</a>" : "");
           const mediaFirst = mediaPosition !== "right";
           return '<div class="card"' + (cardStyle ? ' style="' + esc(cardStyle) + '"' : "") + '><div class="card-body"' + (bodyStyle ? ' style="' + esc(bodyStyle) + '"' : "") + ">" +
@@ -383,8 +572,13 @@ const EDC_PUBLIC_PAGE = (() => {
 
     if (type === "cta" || type === "banner") {
       return open + '<div class="cta-band"><div>' +
+        decoHtml(st, "aboveEyebrow") +
+        eyebrowHtml(data, st) +
+        decoHtml(st, "aboveHeading") +
         headingHtml(data, st, "h2") +
-        bodyHtml(data, st) + "</div>" + buttonsHtml(data, st) + "</div>" + close;
+        bodyHtml(data, st) +
+        decoHtml(st, "belowBody") + "</div>" +
+        buttonsHtml(data, st) + decoHtml(st, "belowButtons") + "</div>" + close;
     }
 
     if (type === "html" && st.allowHtml === true) {
@@ -397,9 +591,14 @@ const EDC_PUBLIC_PAGE = (() => {
 
     // default: text block
     return open +
+      decoHtml(st, "aboveEyebrow") +
+      eyebrowHtml(data, st) +
+      decoHtml(st, "aboveHeading") +
       (data.title || data.heading ? '<div class="section-head">' + headingHtml(data, st, "h2") + "</div>" : "") +
       bodyHtml(data, st) +
-      (image ? img(image, data.alt || data.title || "", st) : "") + buttonsHtml(data, st) + close;
+      decoHtml(st, "belowBody") +
+      (image ? img(image, data.alt || data.title || "", st) : "") +
+      buttonsHtml(data, st) + decoHtml(st, "belowButtons") + close;
   }
 
   /* -------------------------------- mounting ------------------------------- */
