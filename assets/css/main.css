@@ -480,3 +480,28 @@ p.edc-rich, .edc-rich { white-space: pre-wrap; }
 @media (max-width: 620px) {
   .edc-deco img.edc-deco-img { max-width: 70%; height: auto; }
 }
+
+
+/* ============ CARD GRID: background photos & custom card shapes ============ */
+/* Added for the "Card grid" background-photo option and the new
+   "Card grid — customizable" section type. Purely additive. */
+.card.has-card-bg { position: relative; overflow: hidden; isolation: isolate; }
+.card.has-card-bg > .edc-card-bg,
+.card.has-card-bg > .edc-card-bg-overlay { display: block; z-index: 0; }
+.card.has-card-bg > .card-body { position: relative; z-index: 1; }
+
+.edc-live-grid-custom { align-items: start; }
+.edc-card-custom { overflow: hidden; }
+.edc-card-custom > .card-body { box-sizing: border-box; }
+.edc-card-shape-circle,
+.edc-card-shape-oval,
+.edc-card-shape-diamond,
+.edc-card-shape-hexagon,
+.edc-card-shape-octagon,
+.edc-card-shape-triangle,
+.edc-card-shape-star { text-align: center; }
+
+@media (max-width: 620px) {
+  /* on small screens spans must not overflow the single-column layout */
+  .edc-live-grid-custom > .card { grid-column: auto !important; }
+}

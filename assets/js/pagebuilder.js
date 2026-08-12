@@ -24,6 +24,7 @@ const EDC_PAGEBUILDER = (() => {
     { id: "image",  label: "Image",                desc: "A standalone photo with optional heading and caption. Use for showcasing a single important image, a banner, or a decorative photo between text sections." },
     { id: "split",  label: "Image + text",         desc: "A two-column layout with an image on one side and text on the other. Great for feature highlights, service descriptions, or 'about us' style content." },
     { id: "grid",   label: "Card grid",            desc: "A row of cards, each with its own title, text, optional photo, and link. Perfect for showing multiple items like services, team members, features, or program highlights." },
+    { id: "gridx",  label: "Card grid — customizable", desc: "Same as the card grid, but every single card is independent: its own shape (circle, diamond, hexagon, star…), its own size and column/row span, its own edges, corner radius, spacing, alignment, order and its own background photo with blur." },
     { id: "cta",    label: "Call to action",       desc: "A centered banner with a heading, short text, and a button. Used to prompt visitors to take action — apply now, contact us, book a consultation, etc." },
     { id: "footer", label: "Footer links",         desc: "Link groups shown at the bottom of every page. Typically contains navigation links organized by category (Company, Resources, etc.)." },
     { id: "html",   label: "Raw HTML (imported)",  desc: "A block of raw HTML code, usually imported from an existing page. For advanced users who want to paste custom code. Any image URLs inside can be replaced with Media Library URLs." },
@@ -130,6 +131,45 @@ const EDC_PAGEBUILDER = (() => {
     { id: "cardTitle",   label: "Card Title (in card grid)" },
     { id: "cardText",    label: "Card Text (in card grid)" },
     { id: "cardButton",  label: "Card Button (in card grid)" }
+  ];
+
+  /* both card-grid family types share the same editors */
+  function isGridType(type) { return type === "grid" || type === "gridx" || type === "cards"; }
+  function isCustomGrid(type) { return type === "gridx"; }
+
+  const CARD_SHAPE_OPTIONS = [
+    { value: "default", label: "Default (use corner radius)" },
+    { value: "rounded", label: "Rounded corners" },
+    { value: "square", label: "Square (sharp corners)" },
+    { value: "pill", label: "Pill / capsule" },
+    { value: "circle", label: "Circle" },
+    { value: "oval", label: "Oval / ellipse" },
+    { value: "diamond", label: "Diamond" },
+    { value: "hexagon", label: "Hexagon" },
+    { value: "octagon", label: "Octagon" },
+    { value: "triangle", label: "Triangle" },
+    { value: "arch", label: "Arch (rounded top)" },
+    { value: "blob", label: "Blob (organic)" },
+    { value: "star", label: "Star" }
+  ];
+
+  const BG_FITS = [
+    { value: "cover", label: "Fill the whole card (crop if needed)" },
+    { value: "contain", label: "Fit the whole photo inside the card" },
+    { value: "fill", label: "Stretch to the card size" },
+    { value: "none", label: "Original size" }
+  ];
+
+  const BG_POSITIONS = [
+    { value: "center", label: "Center" },
+    { value: "top", label: "Top" },
+    { value: "bottom", label: "Bottom" },
+    { value: "left", label: "Left" },
+    { value: "right", label: "Right" },
+    { value: "top left", label: "Top left" },
+    { value: "top right", label: "Top right" },
+    { value: "bottom left", label: "Bottom left" },
+    { value: "bottom right", label: "Bottom right" }
   ];
 
   function parse(raw) {
@@ -391,6 +431,11 @@ const EDC_PAGEBUILDER = (() => {
       image: { title: "", image_url: "", alt: "" },
       split: { title: "Image and text", body: "Describe the service.", image_url: "" },
       grid: { title: "Highlights", items: [{ title: "Item one", text: "Detail" }, { title: "Item two", text: "Detail" }, { title: "Item three", text: "Detail" }] },
+      gridx: { title: "Highlights", items: [
+        { title: "Item one", text: "Detail", shape: "circle" },
+        { title: "Item two", text: "Detail", shape: "diamond" },
+        { title: "Item three", text: "Detail", shape: "rounded" }
+      ] },
       cta: { title: "Ready to apply?", body: "We place teachers across Thailand.", cta_label: "Apply now", cta_url: "apply.html" },
       footer: { groups: [
         { title: "Company", links: [{ label: "About Us", url: "about.html" }, { label: "Services", url: "services.html" }, { label: "Teachers", url: "teachers.html" }, { label: "Careers", url: "careers.html" }] },
@@ -444,7 +489,9 @@ const EDC_PAGEBUILDER = (() => {
       case "body":   return ["body"];
       case "image":  return ["heading", "body", "button"];
       case "split":  return ["heading", "body", "button"];
-      case "grid":   return ["eyebrow", "heading", "body", "button", "cardTitle", "cardText", "cardButton"];
+      case "grid":
+      case "cards":
+      case "gridx": return ["eyebrow", "heading", "body", "button", "cardTitle", "cardText", "cardButton"];
       case "cta":    return ["heading", "body", "button"];
       default:       return [];
     }
@@ -600,12 +647,12 @@ const EDC_PAGEBUILDER = (() => {
     var html = '<p class="pb-hint">Add a photo, logo or icon <strong>above the eyebrow</strong>, <strong>above the main heading</strong>, <strong>below the body text</strong> or <strong>below the buttons</strong>. Every slot can be resized, reshaped, faded, blurred, rotated, kept transparent, and placed left, center or right. Leave a size empty to use the recommended default that matches the design.</p>';
     html += '<div class="pb-design-sep"><span>Section photos &amp; icons</span><small>Four placement slots</small></div>';
     html += DECO_SLOTS.map(function (slot) { return decoControls(slot, st, false); }).join("");
-    if (type === "grid") {
+    if (isGridType(type)) {
       html += '<div class="pb-design-sep"><span>Card photos &amp; icons</span><small>Applied inside every card of this grid</small></div>';
       html += CARD_DECO_SLOTS.map(function (slot) { return decoControls(slot, st, true); }).join("");
     }
     html += '<div class="pb-design-sep"><span>Small inline icons before titles</span><small>Optional \u2014 matches the text size by default</small></div>';
-    html += INLINE_ICON_KEYS.filter(function (k) { return k.id !== "cardTitle" || type === "grid"; })
+    html += INLINE_ICON_KEYS.filter(function (k) { return k.id !== "cardTitle" || isGridType(type); })
       .map(function (k) { return inlineIconControls(k, st); }).join("");
     return html;
   }
@@ -628,7 +675,106 @@ const EDC_PAGEBUILDER = (() => {
 
   /* ---- card grid items ---- */
   var itemSeq = 0;
-  function itemRow(it, i) {
+  var itemsCustom = false;   /* true while editing a "Card grid — customizable" section */
+
+  /* Background photo controls for ONE card (both grid types) */
+  function cardBgFields(it, i) {
+    return '<details class="pb-elem-group pb-card-bg' + (it.bg_url ? " is-customized" : "") + '">' +
+      '<summary class="pb-elem-head"><span class="pb-elem-name">Background photo for this card</span>' +
+      (it.bg_url ? '<span class="pb-elem-badge">Customized</span>' : '') + '</summary>' +
+      '<div class="pb-elem-body">' +
+        '<p class="pb-hint">Leave empty to use the grid-wide background photo (Design tab). The photo sits behind the card text and always fits fully inside the card.</p>' +
+        field("Background photo URL", text("it-bgurl-" + i, it.bg_url, "https://\u2026 or assets/img/photo.jpg")) +
+        '<div class="pb-field-row">' +
+          field("How the photo fits", select("it-bgfit-" + i, [{ value: "", label: "Use grid default" }].concat(BG_FITS), it.bg_fit || "")) +
+          field("Photo focus point", select("it-bgpos-" + i, [{ value: "", label: "Use grid default" }].concat(BG_POSITIONS), it.bg_position || "")) +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Blur the photo (px, 0 = sharp)", num("it-bgblur-" + i, it.bg_blur, "grid default")) +
+          field("Photo fade / opacity (0.1 \u2013 1)", num("it-bgop-" + i, it.bg_opacity, "grid default")) +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Black &amp; white (0 \u2013 100%)", num("it-bggray-" + i, it.bg_grayscale, "grid default")) +
+          field("Dark overlay for readable text (0 \u2013 1)", num("it-bgov-" + i, it.bg_overlay, "grid default")) +
+        '</div>' +
+        field("Overlay colour", color("it-bgovc-" + i, it.bg_overlay_color, "#000000")) +
+        checkbox("it-bgoff-" + i, it.bg_off === true || it.bg_off === "true", "No background photo on this card (ignore the grid-wide photo)") +
+      '</div>' +
+    '</details>';
+  }
+
+  /* Shape / size / spacing controls for ONE card (customizable grid only) */
+  function cardShapeFields(it, i) {
+    return '<details class="pb-elem-group pb-card-shape' + (it.shape && it.shape !== "default" ? " is-customized" : "") + '">' +
+      '<summary class="pb-elem-head"><span class="pb-elem-name">Shape, size, edges &amp; spacing of this card</span>' +
+      (it.shape && it.shape !== "default" ? '<span class="pb-elem-badge">' + esc(it.shape) + '</span>' : '') + '</summary>' +
+      '<div class="pb-elem-body">' +
+        '<p class="pb-hint">These settings apply to <strong>this card only</strong>. Every card can have a different shape, size, edge and spacing.</p>' +
+        field("Card shape", select("it-shape-" + i, CARD_SHAPE_OPTIONS, it.shape || "default")) +
+        '<div class="pb-design-sep pb-design-sep-sm"><span>Size</span><small>Columns it spans, rows it spans, height</small></div>' +
+        '<div class="pb-field-row">' +
+          field("Columns this card spans", num("it-colspan-" + i, it.col_span, "1")) +
+          field("Rows this card spans", num("it-rowspan-" + i, it.row_span, "1")) +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Card width (px or %, empty = full cell)", num("it-width-" + i, it.width, "auto")) +
+          field("Minimum height (px)", num("it-minh-" + i, it.min_height, "auto")) +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Shape ratio (e.g. 1/1, 4/3)", text("it-aspect-" + i, it.aspect, "auto")) +
+          field("Zoom this card (1 = normal)", num("it-scale-" + i, it.scale, "1")) +
+        '</div>' +
+        checkbox("it-stretch-" + i, it.stretch === true || it.stretch === "true", "Stretch this card to the full row height") +
+        '<div class="pb-design-sep pb-design-sep-sm"><span>Edges</span><small>This card\u2019s own border and corners</small></div>' +
+        '<div class="pb-field-row">' +
+          field("Edge thickness (px, 0 = no line)", num("it-bw-" + i, it.border_width, "grid default")) +
+          field("Edge style", select("it-bs-" + i, [
+            { value: "", label: "Use grid default" },
+            { value: "solid", label: "Solid line" },
+            { value: "dashed", label: "Dashed line" },
+            { value: "dotted", label: "Dotted line" },
+            { value: "double", label: "Double line" },
+            { value: "none", label: "No edge at all" }
+          ], it.border_style || "")) +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Edge colour", color("it-bc-" + i, it.border_color, "#e5e7eb")) +
+          field("Corner radius (px)", num("it-radius-" + i, it.radius, "grid default")) +
+        '</div>' +
+        '<div class="pb-design-sep pb-design-sep-sm"><span>Spacing &amp; placement</span><small>This card\u2019s own gaps and position</small></div>' +
+        '<div class="pb-field-row">' +
+          field("Extra side gap (px)", num("it-gapx-" + i, it.gap_x, "0")) +
+          field("Extra top / bottom gap (px)", num("it-gapy-" + i, it.gap_y, "0")) +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Vertical placement in its cell", select("it-selfalign-" + i, [
+            { value: "", label: "Grid default" },
+            { value: "start", label: "Top" },
+            { value: "center", label: "Middle" },
+            { value: "end", label: "Bottom" },
+            { value: "stretch", label: "Stretch" }
+          ], it.self_align || "")) +
+          field("Horizontal placement in its cell", select("it-selfjustify-" + i, [
+            { value: "", label: "Grid default" },
+            { value: "start", label: "Left" },
+            { value: "center", label: "Center" },
+            { value: "end", label: "Right" },
+            { value: "stretch", label: "Stretch" }
+          ], it.self_justify || "")) +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Card order (lower shows first)", num("it-order-" + i, it.order, "auto")) +
+          field("Inner padding (px)", num("it-padding-" + i, it.padding, "auto")) +
+        '</div>' +
+        '<div class="pb-field-row">' +
+          field("Card background colour", color("it-cardbg-" + i, it.background, "#ffffff")) +
+          field("Card text colour", color("it-textcolor-" + i, it.text_color, "#0f172a")) +
+        '</div>' +
+      '</div>' +
+    '</details>';
+  }
+
+  function itemRow(it, i, custom) {
     it = it || {};
     return '<div class="pb-grid-item" data-ii="' + i + '">' +
       field("Card label / kicker", text("it-eyebrow-" + i, it.eyebrow || it.label || it.tag)) +
@@ -655,16 +801,22 @@ const EDC_PAGEBUILDER = (() => {
       field("Card button label", text("it-ctalabel-" + i, it.cta_label)) +
       field("Card photo (image URL)", text("it-image-" + i, it.image_url || it.image, "https://\u2026 or assets/img/photo.jpg")) +
       field("Card photo alt text", text("it-alt-" + i, it.alt)) +
+      cardBgFields(it, i) +
+      (custom ? cardShapeFields(it, i) : "") +
       '<button class="pb-btn pb-btn-sm pb-btn-danger" data-act="delitem" type="button">Remove card</button>' +
     '</div>';
   }
-  function itemsEditor(items) {
+
+  function itemsEditor(items, custom) {
     items = Array.isArray(items) ? items : [];
     itemSeq = items.length;
-    return '<p class="pb-hint">Every card is editable — including its label, alignment, layout, and photo. Cards use equal spaces by default, and each card can override those defaults.</p>' +
-      '<div id="in-items-list">' + items.map(function (it, i) { return itemRow(it, i); }).join("") + '</div>' +
+    itemsCustom = !!custom;
+    return '<p class="pb-hint">Every card is editable — including its label, alignment, layout, photo and its own background photo.' +
+      (custom ? ' In this customizable grid each card also has its own shape, size, edges, spacing and order.' : ' Cards use equal spaces by default, and each card can override those defaults.') + '</p>' +
+      '<div id="in-items-list">' + items.map(function (it, i) { return itemRow(it, i, custom); }).join("") + '</div>' +
       '<button class="pb-btn pb-btn-sm" id="in-add-item" type="button">+ Add card</button>';
   }
+
   function bindItemsEditor(box) {
     var list = box.querySelector("#in-items-list");
     if (!list) return;
@@ -676,8 +828,13 @@ const EDC_PAGEBUILDER = (() => {
     bindDeletes();
     var add = box.querySelector("#in-add-item");
     if (add) add.onclick = function () {
-      list.insertAdjacentHTML("beforeend", itemRow({}, itemSeq++));
+      list.insertAdjacentHTML("beforeend", itemRow({}, itemSeq++, itemsCustom));
       bindDeletes();
+      /* the new card's inputs must also drive the live preview */
+      const fresh = list.lastElementChild;
+      if (fresh) fresh.querySelectorAll(".pb-input, .pb-check input").forEach(function (inp) {
+        inp.addEventListener(inp.type === "checkbox" ? "change" : "input", scheduleLivePreview);
+      });
       scheduleLivePreview();
     };
   }
@@ -732,6 +889,28 @@ const EDC_PAGEBUILDER = (() => {
     });
   }
 
+  /* ---- grid-wide card background photo (applies to every card) ---- */
+  function cardBackgroundFields(st) {
+    const bg = st.cardBg || {};
+    return '<div class="pb-design-sep pb-design-sep-sm"><span>Card background photo</span><small>One photo behind every card \u2014 fits fully inside, can be blurred</small></div>' +
+      field("Background photo URL", text("st-cardbg-url", bg.url, "https://\u2026 or assets/img/photo.jpg")) +
+      checkbox("st-cardbg-all", bg.url ? bg.applyAll !== false && bg.applyAll !== "false" : true,
+        "Apply this photo to ALL cards (uncheck to set the photo card by card in the Content tab)") +
+      '<div class="pb-field-row">' +
+        field("How the photo fits", select("st-cardbg-fit", BG_FITS, bg.fit || "cover")) +
+        field("Photo focus point", select("st-cardbg-pos", BG_POSITIONS, bg.position || "center")) +
+      '</div>' +
+      '<div class="pb-field-row">' +
+        field("Blur the photo (px, 0 = sharp)", num("st-cardbg-blur", bg.blur, "0")) +
+        field("Photo fade / opacity (0.1 \u2013 1)", num("st-cardbg-opacity", bg.opacity, "1")) +
+      '</div>' +
+      '<div class="pb-field-row">' +
+        field("Black &amp; white (0 \u2013 100%)", num("st-cardbg-gray", bg.grayscale, "0")) +
+        field("Dark overlay for readable text (0 \u2013 1)", num("st-cardbg-overlay", bg.overlay, "0.35")) +
+      '</div>' +
+      field("Overlay colour", color("st-cardbg-overlay-color", bg.overlayColor, "#000000"));
+  }
+
   function renderInspector() {
     const box = root.querySelector("#pb-inspector");
     const s = state.sections.find(x => x.section_id === state.activeSectionId);
@@ -758,8 +937,8 @@ const EDC_PAGEBUILDER = (() => {
       advImageBar(im.adv) +
       field("Image alt text", text("in-alt", c.alt));
 
-    if (s.type === "grid") {
-      contentFields += itemsEditor(c.items);
+    if (isGridType(s.type)) {
+      contentFields += itemsEditor(c.items, isCustomGrid(s.type));
     }
 
     if (s.type === "footer") {
@@ -809,7 +988,7 @@ const EDC_PAGEBUILDER = (() => {
               { value: "left", label: "Left-aligned" },
               { value: "right", label: "Right-aligned" }
             ], st.blockAlign || "center")) +
-            (s.type === "grid" ?
+            (isGridType(s.type) ?
               '<div class="pb-field-row">' +
                 field("Grid columns", num("st-cols", st.columns, "3")) +
                 field("Gap between cards (px)", num("st-gap", st.gap, "24")) +
@@ -843,7 +1022,16 @@ const EDC_PAGEBUILDER = (() => {
               '<div class="pb-field-row">' +
                 field("Edge colour", color("st-card-bc", st.cardBorderColor, "#e5e7eb")) +
                 field("Card corner radius (px)", num("st-card-radius", st.cardRadius, "12")) +
-              '</div>' : '') +
+              '</div>' +
+              cardBackgroundFields(st) +
+              (isCustomGrid(s.type) ?
+                '<div class="pb-design-sep pb-design-sep-sm"><span>Customizable grid</span><small>Row spacing and how cards fill the grid</small></div>' +
+                '<div class="pb-field-row">' +
+                  field("Gap between rows (px)", num("st-rowgap", st.rowGap, "same as card gap")) +
+                  field("Row height (px, empty = automatic)", num("st-autorows", st.autoRows, "auto")) +
+                '</div>' +
+                checkbox("st-dense", st.denseFill === true || st.denseFill === "true", "Let smaller cards fill the gaps left by bigger cards")
+                : '') : '') +
             field("Button style", select("st-btn", [
               { value: "btn-gold", label: "Gold button" },
               { value: "btn-primary", label: "Navy button" },
@@ -1089,11 +1277,52 @@ const EDC_PAGEBUILDER = (() => {
             ["url", "it-url-" + i],
             ["cta_label", "it-ctalabel-" + i],
             ["image_url", "it-image-" + i],
-            ["alt", "it-alt-" + i]
+            ["alt", "it-alt-" + i],
+            /* per-card background photo */
+            ["bg_url", "it-bgurl-" + i],
+            ["bg_fit", "it-bgfit-" + i],
+            ["bg_position", "it-bgpos-" + i],
+            ["bg_blur", "it-bgblur-" + i],
+            ["bg_opacity", "it-bgop-" + i],
+            ["bg_grayscale", "it-bggray-" + i],
+            ["bg_overlay", "it-bgov-" + i],
+            ["bg_overlay_color", "it-bgovc-" + i],
+            /* per-card shape / size / edges / spacing (customizable grid) */
+            ["shape", "it-shape-" + i],
+            ["col_span", "it-colspan-" + i],
+            ["row_span", "it-rowspan-" + i],
+            ["width", "it-width-" + i],
+            ["min_height", "it-minh-" + i],
+            ["aspect", "it-aspect-" + i],
+            ["scale", "it-scale-" + i],
+            ["border_width", "it-bw-" + i],
+            ["border_style", "it-bs-" + i],
+            ["border_color", "it-bc-" + i],
+            ["radius", "it-radius-" + i],
+            ["gap_x", "it-gapx-" + i],
+            ["gap_y", "it-gapy-" + i],
+            ["self_align", "it-selfalign-" + i],
+            ["self_justify", "it-selfjustify-" + i],
+            ["order", "it-order-" + i],
+            ["padding", "it-padding-" + i],
+            ["background", "it-cardbg-" + i],
+            ["text_color", "it-textcolor-" + i]
           ].forEach(function (pair) {
             const input = root.querySelector("#" + pair[1]);
             if (input) item[pair[0]] = input.value.trim();
           });
+          /* colour inputs always report a value — only keep them when the
+           * author actually opened the customizable controls for this card */
+          if (!root.querySelector("#it-shape-" + i)) {
+            ["shape","col_span","row_span","width","min_height","aspect","scale","border_width",
+             "border_style","border_color","radius","gap_x","gap_y","self_align","self_justify",
+             "order","padding","background","text_color","stretch"].forEach(function (k) { delete item[k]; });
+          } else {
+            item.stretch = checked("it-stretch-" + i);
+          }
+          if (root.querySelector("#it-bgoff-" + i)) item.bg_off = checked("it-bgoff-" + i);
+          /* drop empty values so the card falls back to the grid defaults */
+          Object.keys(item).forEach(function (k) { if (item[k] === "") delete item[k]; });
           return item;
         }).filter(function (it) { return Object.keys(it).length; });
       }
@@ -1119,6 +1348,26 @@ const EDC_PAGEBUILDER = (() => {
     maybe(style, "buttonVariant", val("st-btn"));
     if (checked("st-reverse")) style.reverse = true;
     if ((val("in-type") || s.type) === "html") style.allowHtml = true;
+
+    maybe(style, "rowGap", val("st-rowgap"));
+    maybe(style, "autoRows", val("st-autorows"));
+    if (root.querySelector("#st-dense")) style.denseFill = checked("st-dense");
+
+    /* grid-wide card background photo */
+    if (root.querySelector("#st-cardbg-url")) {
+      const cardBgUrl = val("st-cardbg-url");
+      if (cardBgUrl) {
+        const cbg = { url: cardBgUrl, applyAll: checked("st-cardbg-all") };
+        maybe(cbg, "fit", val("st-cardbg-fit"));
+        maybe(cbg, "position", val("st-cardbg-pos"));
+        maybe(cbg, "blur", val("st-cardbg-blur"));
+        maybe(cbg, "opacity", val("st-cardbg-opacity"));
+        maybe(cbg, "grayscale", val("st-cardbg-gray"));
+        maybe(cbg, "overlay", val("st-cardbg-overlay"));
+        maybe(cbg, "overlayColor", val("st-cardbg-overlay-color"));
+        style.cardBg = cbg;
+      } else if (style.cardBg) delete style.cardBg;
+    }
 
     maybe(style, "cardBorderWidth", val("st-card-bw"));
     maybe(style, "cardBorderStyle", val("st-card-bs"));
@@ -1209,7 +1458,7 @@ const EDC_PAGEBUILDER = (() => {
 
   /* ---- collect the Icons & Photos tab into style_json ---- */
   function collectDecorations(type) {
-    const slots = DECO_SLOTS.concat(type === "grid" ? CARD_DECO_SLOTS : []);
+    const slots = DECO_SLOTS.concat(isGridType(type) ? CARD_DECO_SLOTS : []);
     const out = {};
     slots.forEach(function (slot) {
       const id = slot.id;
@@ -1252,7 +1501,7 @@ const EDC_PAGEBUILDER = (() => {
     const out = {};
     INLINE_ICON_KEYS.forEach(function (key) {
       const id = key.id;
-      if (id === "cardTitle" && type !== "grid") return;
+      if (id === "cardTitle" && !isGridType(type)) return;
       const mode = val("ic-" + id + "-mode");
       if (mode !== "icon" && mode !== "image") return;
       const d = { mode: mode };

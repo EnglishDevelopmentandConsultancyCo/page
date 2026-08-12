@@ -457,7 +457,244 @@ const EDC_PUBLIC_PAGE = (() => {
     return '<div class="edc-live-btns" style="display:inline-flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:16px;">' + b1 + b2 + '</div>';
   }
 
+
+  /* ======================================================================
+   * CARD GRID RENDERER  (types: grid / cards / gridx)
+   * ----------------------------------------------------------------------
+   * "gridx" = Card grid — customizable. Same as the classic card grid, but
+   * every card can override its own shape, size, span, edges, gaps,
+   * alignment, order and background photo.
+   * Everything below is additive: sections saved before this update keep
+   * rendering exactly as they did.
+   * ==================================================================== */
+
+  var CARD_SHAPES = ["default", "rounded", "square", "pill", "circle", "oval", "diamond",
+                     "hexagon", "octagon", "triangle", "arch", "blob", "star"];
+
+  function hexToRgba(hex, alpha) {
+    var h = String(hex || "#000000").trim();
+    if (/^rgba?\(/i.test(h)) return h;
+    h = h.replace("#", "");
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    if (!/^[0-9a-f]{6}$/i.test(h)) h = "000000";
+    var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    return "rgba(" + r + "," + g + "," + b + "," + clampNum(alpha, 0, 1, 0.35) + ")";
+  }
+
+  /* Background photo layer that fits fully inside a card and can be blurred
+   * without blurring the card text (the photo lives in its own layer). */
+  function cardBgHtml(bg) {
+    if (!bg) return "";
+    var url = safeImage(bg.url || bg.image_url || "");
+    if (!url) return "";
+    var fit = enumValue(bg.fit, ["cover", "contain", "fill", "none"], "cover");
+    var size = fit === "fill" ? "100% 100%" : (fit === "none" ? "auto" : fit);
+    var pos = bg.position || "center";
+    var blur = numOr(bg.blur, 0);
+    var gray = numOr(bg.grayscale, 0);
+    var op = clampNum(bg.opacity, 0, 1, 1);
+    var filters = [];
+    if (blur > 0) filters.push("blur(" + blur + "px)");
+    if (gray > 0) filters.push("grayscale(" + Math.min(100, gray) + "%)");
+    /* pull the layer outside the card when blurring so no soft edge shows */
+    var inset = blur > 0 ? -(Math.ceil(blur * 2) + 4) : 0;
+    var layer = '<span class="edc-card-bg" aria-hidden="true" style="' + esc(
+      "position:absolute;inset:" + inset + "px;pointer-events:none;" +
+      "background-image:url('" + url.replace(/'/g, "%27") + "');" +
+      "background-size:" + size + ";background-position:" + pos + ";background-repeat:no-repeat;" +
+      (filters.length ? "filter:" + filters.join(" ") + ";" : "") +
+      (op < 1 ? "opacity:" + op + ";" : "")
+    ) + '"></span>';
+    var ov = clampNum(bg.overlay, 0, 1, 0);
+    var overlay = ov > 0
+      ? '<span class="edc-card-bg-overlay" aria-hidden="true" style="' +
+        esc("position:absolute;inset:0;pointer-events:none;background:" + hexToRgba(bg.overlayColor || "#000000", ov) + ";") + '"></span>'
+      : "";
+    return layer + overlay;
+  }
+
+  /* Resolve the background photo for one card:
+   *  - the card's own photo wins
+   *  - otherwise the section photo is used when "apply to all cards" is on
+   *  - a card can opt out with bg_off */
+  function resolveCardBg(sectionBg, item) {
+    if (item && (item.bg_off === true || item.bg_off === "true")) return null;
+    var own = item && safeImage(item.bg_url || "") ? {
+      url: item.bg_url,
+      fit: item.bg_fit || (sectionBg && sectionBg.fit),
+      position: item.bg_position || (sectionBg && sectionBg.position),
+      blur: item.bg_blur !== undefined && item.bg_blur !== "" ? item.bg_blur : (sectionBg && sectionBg.blur),
+      grayscale: item.bg_grayscale !== undefined && item.bg_grayscale !== "" ? item.bg_grayscale : (sectionBg && sectionBg.grayscale),
+      opacity: item.bg_opacity !== undefined && item.bg_opacity !== "" ? item.bg_opacity : (sectionBg && sectionBg.opacity),
+      overlay: item.bg_overlay !== undefined && item.bg_overlay !== "" ? item.bg_overlay : (sectionBg && sectionBg.overlay),
+      overlayColor: item.bg_overlay_color || (sectionBg && sectionBg.overlayColor)
+    } : null;
+    if (own) return own;
+    if (!sectionBg || !safeImage(sectionBg.url || "")) return null;
+    if (sectionBg.applyAll === false || sectionBg.applyAll === "false") return null;
+    /* the section photo may also be limited to chosen cards */
+    return sectionBg;
+  }
+
+  /* Per-card shape (customizable grid only). */
+  function cardShapeCss(shape) {
+    switch (shape) {
+      case "rounded":  return "border-radius:18px;";
+      case "square":   return "border-radius:0;";
+      case "pill":     return "border-radius:999px;";
+      case "circle":   return "border-radius:50%;aspect-ratio:1/1;";
+      case "oval":     return "border-radius:50%;";
+      case "diamond":  return "clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);aspect-ratio:1/1;";
+      case "hexagon":  return "clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%);";
+      case "octagon":  return "clip-path:polygon(30% 0%,70% 0%,100% 30%,100% 70%,70% 100%,30% 100%,0% 70%,0% 30%);";
+      case "triangle": return "clip-path:polygon(50% 0%,100% 100%,0% 100%);aspect-ratio:1/0.9;";
+      case "arch":     return "border-radius:999px 999px 18px 18px;";
+      case "blob":     return "border-radius:62% 38% 46% 54%/48% 60% 40% 52%;";
+      case "star":     return "clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);aspect-ratio:1/1;";
+      default:         return "";
+    }
+  }
+  /* shapes whose corners cut the content — the body gets extra breathing room */
+  function shapeNeedsInnerPad(shape) {
+    return ["circle", "diamond", "hexagon", "octagon", "triangle", "star", "arch", "pill", "oval"].indexOf(shape) >= 0;
+  }
+  function shapeCentersContent(shape) {
+    return ["circle", "diamond", "hexagon", "octagon", "triangle", "star", "pill", "oval"].indexOf(shape) >= 0;
+  }
+
+  function borderCss(width, style, color, radius) {
+    var out = [];
+    var st2 = enumValue(style, ["solid", "dashed", "dotted", "double", "none"], "");
+    if (width !== undefined && width !== null && width !== "") out.push("border-width:" + cssUnit(width) + ";border-style:" + (st2 || "solid") + ";");
+    else if (st2) out.push("border-style:" + st2 + ";");
+    if (color) out.push("border-color:" + color + ";");
+    if (radius !== undefined && radius !== null && radius !== "") out.push("border-radius:" + cssUnit(radius) + ";");
+    return out.join("");
+  }
+
+  function renderCardGrid(type, data, st, open, close) {
+    const custom = type === "gridx";
+    const items = Array.isArray(data.items) ? data.items : [];
+    const cols = Number(st.columns) || (items.length >= 3 ? 3 : 2);
+    const cardLayout = enumValue(st.cardLayout, ["grid", "horizontal"], "grid");
+    const cardAlign = enumValue(st.cardAlign, ["left", "center", "right", "justify"], "");
+    const equalCardHeight = st.equalCardHeight !== false;
+    const gridClass = cardLayout === "horizontal" ? " pb-card-layout-horizontal" : "";
+    const rowGap = st.rowGap !== undefined && st.rowGap !== null && st.rowGap !== "" ? st.rowGap : st.gap;
+    const gapCss = cssUnit(rowGap === undefined || rowGap === null || rowGap === "" ? 24 : rowGap) + " " + cssUnit(st.gap === undefined || st.gap === null || st.gap === "" ? 24 : st.gap);
+    const gridStyle = cardLayout === "horizontal"
+      ? "display:flex;flex-wrap:nowrap;overflow-x:auto;align-items:" + (custom ? "flex-start" : "stretch") + ";gap:" + gapCss
+      : "display:grid;align-items:" + (custom ? "start" : "stretch") + ";gap:" + gapCss +
+        ";grid-template-columns:repeat(" + Math.max(1, cols) + ",minmax(0,1fr))" +
+        (custom && st.autoRows ? ";grid-auto-rows:" + cssUnit(st.autoRows) : "") +
+        (custom && (st.denseFill === true || st.denseFill === "true") ? ";grid-auto-flow:row dense" : "");
+
+    /* section-level card edges (classic behaviour, still the default) */
+    const cardBorder = borderCss(st.cardBorderWidth, st.cardBorderStyle, st.cardBorderColor, st.cardRadius);
+    const sectionBg = st.cardBg && (st.cardBg.url || st.cardBg.image_url) ? st.cardBg : null;
+
+    const cardsHtml = items.map(function (item, idx) {
+      const itemImg = safeImage(item.image_url || item.image);
+      const titleEs = elementStyle(st, "cardTitle");
+      const textEs = elementStyle(st, "cardText");
+      const btnEs = elementStyle(st, "cardButton");
+      const itemLayout = enumValue(item.layout, ["stacked", "horizontal"], "stacked");
+      const mediaPosition = enumValue(item.image_position || item.media_position, ["top", "left", "right", "hidden"], itemLayout === "horizontal" ? "left" : "top");
+      const itemTextAlign = enumValue(item.align || item.text_align, ["left", "center", "right", "justify"], cardAlign);
+      const shape = custom ? enumValue(item.shape, CARD_SHAPES, "default") : "default";
+      const bg = resolveCardBg(sectionBg, item);
+
+      /* ---- card box ---- */
+      var cardCss = "";
+      if (!custom) {
+        cardCss += (equalCardHeight ? "height:100%;" : "");
+        cardCss += (cardLayout === "horizontal" ? "flex:0 0 min(86vw,420px);" : "");
+        cardCss += cardBorder;
+      } else {
+        /* every card carries its own edges, radius, size, span and spacing */
+        const ownBorder = borderCss(
+          item.border_width !== undefined && item.border_width !== "" ? item.border_width : st.cardBorderWidth,
+          item.border_style || st.cardBorderStyle,
+          item.border_color || st.cardBorderColor,
+          item.radius !== undefined && item.radius !== "" ? item.radius : st.cardRadius
+        );
+        cardCss += ownBorder;
+        cardCss += cardShapeCss(shape);
+        if (item.stretch === true || item.stretch === "true") cardCss += "height:100%;";
+        if (cardLayout === "horizontal") cardCss += "flex:0 0 " + (item.width ? cssUnit(item.width) : "min(86vw,420px)") + ";";
+        else {
+          const cspan = Math.max(1, Math.min(Number(item.col_span) || 1, Math.max(1, cols)));
+          const rspan = Math.max(1, Number(item.row_span) || 1);
+          if (cspan > 1) cardCss += "grid-column:span " + cspan + ";";
+          if (rspan > 1) cardCss += "grid-row:span " + rspan + ";";
+          if (item.width) cardCss += "width:" + cssUnit(item.width) + ";max-width:100%;";
+        }
+        if (item.min_height) cardCss += "min-height:" + cssUnit(item.min_height) + ";";
+        if (item.aspect) cardCss += "aspect-ratio:" + esc(item.aspect) + ";";
+        if (item.scale && numOr(item.scale, 1) !== 1) cardCss += "transform:scale(" + numOr(item.scale, 1) + ");";
+        /* per-card gaps (extra space around this card only) */
+        if (item.gap_x) cardCss += "margin-left:" + cssUnit(item.gap_x) + ";margin-right:" + cssUnit(item.gap_x) + ";";
+        if (item.gap_y) cardCss += "margin-top:" + cssUnit(item.gap_y) + ";margin-bottom:" + cssUnit(item.gap_y) + ";";
+        /* per-card placement inside its grid cell */
+        const selfV = enumValue(item.self_align, ["start", "center", "end", "stretch"], "");
+        const selfH = enumValue(item.self_justify, ["start", "center", "end", "stretch"], "");
+        if (selfV) cardCss += (cardLayout === "horizontal" ? "align-self:" : "align-self:") + selfV + ";";
+        if (selfH) cardCss += "justify-self:" + selfH + ";";
+        if (item.order !== undefined && item.order !== "" && isFinite(parseInt(item.order, 10))) cardCss += "order:" + parseInt(item.order, 10) + ";";
+        if (item.background) cardCss += "background:" + item.background + ";";
+        if (item.z_index) cardCss += "position:relative;z-index:" + parseInt(item.z_index, 10) + ";";
+      }
+      if (bg) cardCss += "position:relative;overflow:hidden;isolation:isolate;";
+
+      /* ---- card body ---- */
+      var bodyCss = (custom ? "" : "height:100%;") +
+        (itemTextAlign ? "text-align:" + itemTextAlign + ";" : "") +
+        (itemLayout === "horizontal" ? "display:flex;align-items:center;gap:16px;" : "");
+      if (bg) bodyCss += "position:relative;z-index:1;";
+      if (custom) {
+        if (item.padding) bodyCss += "padding:" + cssUnit(item.padding) + ";";
+        else if (shapeNeedsInnerPad(shape)) bodyCss += "padding:14%;";
+        if (shapeCentersContent(shape)) bodyCss += "height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;";
+        else if (item.stretch === true || item.stretch === "true") bodyCss += "height:100%;";
+        if (bg && item.text_contrast !== "off") bodyCss += "text-shadow:0 1px 2px rgba(0,0,0,.35);";
+        if (item.text_color) bodyCss += "color:" + item.text_color + ";";
+      } else if (bg && item.text_contrast !== "off") {
+        bodyCss += "text-shadow:0 1px 2px rgba(0,0,0,.35);";
+      }
+
+      const itemImage = itemImg && mediaPosition !== "hidden" ? img(itemImg, item.alt || item.title || "", st) : "";
+      const itemLabel = item.eyebrow || item.label || item.tag || "";
+      const itemCopy = (itemLabel ? '<span class="tag">' + esc(itemLabel) + "</span>" : "") +
+        decoHtml(st, "cardAboveTitle", true) +
+        (item.title ? "<h3" + (titleEs ? ' style="' + esc(titleEs) + '"' : "") + ">" +
+          inlineIconHtml(st, "cardTitle") + esc(item.title) + "</h3>" : "") +
+        richText(item.text || item.body || "", textEs, "muted") +
+        decoHtml(st, "cardBelowText", true) +
+        (safeLink(item.url) ? '<a class="btn btn-outline btn-sm mt-4"' + (btnEs ? ' style="' + esc(btnEs) + '"' : "") + ' href="' + esc(safeLink(item.url)) + '">' + esc(item.cta_label || "Read more") + "</a>" : "");
+      const mediaFirst = mediaPosition !== "right";
+
+      return '<div class="card edc-card' + (custom ? " edc-card-custom edc-card-shape-" + esc(shape) : "") + (bg ? " has-card-bg" : "") + '"' +
+        (cardCss ? ' style="' + esc(cardCss) + '"' : "") + ">" +
+        cardBgHtml(bg) +
+        '<div class="card-body"' + (bodyCss ? ' style="' + esc(bodyCss) + '"' : "") + ">" +
+        (mediaFirst ? itemImage + itemCopy : itemCopy + itemImage) +
+        "</div></div>";
+    }).join("");
+
+    return open +
+      decoHtml(st, "aboveEyebrow") +
+      (data.eyebrow ? eyebrowHtml(data, st) : "") +
+      decoHtml(st, "aboveHeading") +
+      (data.title || data.heading ? '<div class="section-head">' + headingHtml(data, st, "h2") + "</div>" : "") +
+      (data.body ? bodyHtml(data, st) : "") +
+      '<div class="edc-live-grid' + gridClass + (custom ? " edc-live-grid-custom" : "") + '" style="' + esc(gridStyle) + '">' +
+      cardsHtml + "</div>" +
+      (buttonsHtml(data, st) ? '<div class="mt-6" style="margin-top:24px">' + buttonsHtml(data, st) + "</div>" : "") +
+      close;
+  }
+
   /* ------------------------------- renderers ------------------------------- */
+
 
   function renderSection(section) {
     const data = parse(section.content_json, {});
@@ -513,61 +750,8 @@ const EDC_PUBLIC_PAGE = (() => {
         (reverse ? media + text : text + media) + "</div>" + close;
     }
 
-    if (type === "grid" || type === "cards") {
-      const items = Array.isArray(data.items) ? data.items : [];
-      const cols = Number(st.columns) || (items.length >= 3 ? 3 : 2);
-      const cardLayout = enumValue(st.cardLayout, ["grid", "horizontal"], "grid");
-      const cardAlign = enumValue(st.cardAlign, ["left", "center", "right", "justify"], "");
-      const equalCardHeight = st.equalCardHeight !== false;
-      const gridClass = cardLayout === "horizontal" ? " pb-card-layout-horizontal" : "";
-      const gridStyle = cardLayout === "horizontal"
-        ? "display:flex;flex-wrap:nowrap;overflow-x:auto;align-items:stretch;gap:" + cssUnit(st.gap || 24)
-        : "display:grid;align-items:stretch;gap:" + cssUnit(st.gap || 24) + ";grid-template-columns:repeat(" + Math.max(1, cols) + ",minmax(0,1fr))";
-      /* card edge (border) controls — thickness, style and colour */
-      const cardBorder = (function () {
-        const w = st.cardBorderWidth;
-        const col = st.cardBorderColor;
-        const style = enumValue(st.cardBorderStyle, ["solid", "dashed", "dotted", "double", "none"], "");
-        const out = [];
-        if (w !== undefined && w !== null && w !== "") out.push("border-width:" + cssUnit(w) + ";border-style:" + (style || "solid") + ";");
-        else if (style) out.push("border-style:" + style + ";");
-        if (col) out.push("border-color:" + col + ";");
-        if (st.cardRadius !== undefined && st.cardRadius !== null && st.cardRadius !== "") out.push("border-radius:" + cssUnit(st.cardRadius) + ";");
-        return out.join("");
-      })();
-      return open +
-        decoHtml(st, "aboveEyebrow") +
-        (data.eyebrow ? eyebrowHtml(data, st) : "") +
-        decoHtml(st, "aboveHeading") +
-        (data.title || data.heading ? '<div class="section-head">' + headingHtml(data, st, "h2") + "</div>" : "") +
-        (data.body ? bodyHtml(data, st) : "") +
-        '<div class="edc-live-grid' + gridClass + '" style="' + gridStyle + '">' +
-        items.map(function (item) {
-          const itemImg = safeImage(item.image_url || item.image);
-          const titleEs = elementStyle(st, "cardTitle");
-          const textEs = elementStyle(st, "cardText");
-          const btnEs = elementStyle(st, "cardButton");
-          const itemLayout = enumValue(item.layout, ["stacked", "horizontal"], "stacked");
-          const mediaPosition = enumValue(item.image_position || item.media_position, ["top", "left", "right", "hidden"], itemLayout === "horizontal" ? "left" : "top");
-          const itemTextAlign = enumValue(item.align || item.text_align, ["left", "center", "right", "justify"], cardAlign);
-          const cardStyle = (equalCardHeight ? "height:100%;" : "") + (cardLayout === "horizontal" ? "flex:0 0 min(86vw,420px);" : "") + cardBorder;
-          const bodyStyle = "height:100%;" +
-            (itemTextAlign ? "text-align:" + itemTextAlign + ";" : "") +
-            (itemLayout === "horizontal" ? "display:flex;align-items:center;gap:16px;" : "");
-          const itemImage = itemImg && mediaPosition !== "hidden" ? img(itemImg, item.alt || item.title || "", st) : "";
-          const itemLabel = item.eyebrow || item.label || item.tag || "";
-          const itemCopy = (itemLabel ? '<span class="tag">' + esc(itemLabel) + "</span>" : "") +
-            decoHtml(st, "cardAboveTitle", true) +
-            (item.title ? "<h3" + (titleEs ? ' style="' + esc(titleEs) + '"' : "") + ">" +
-              inlineIconHtml(st, "cardTitle") + esc(item.title) + "</h3>" : "") +
-            richText(item.text || item.body || "", textEs, "muted") +
-            decoHtml(st, "cardBelowText", true) +
-            (safeLink(item.url) ? '<a class="btn btn-outline btn-sm mt-4"' + (btnEs ? ' style="' + esc(btnEs) + '"' : "") + ' href="' + esc(safeLink(item.url)) + '">' + esc(item.cta_label || "Read more") + "</a>" : "");
-          const mediaFirst = mediaPosition !== "right";
-          return '<div class="card"' + (cardStyle ? ' style="' + esc(cardStyle) + '"' : "") + '><div class="card-body"' + (bodyStyle ? ' style="' + esc(bodyStyle) + '"' : "") + ">" +
-            (mediaFirst ? itemImage + itemCopy : itemCopy + itemImage) +
-            "</div></div>";
-        }).join("") + "</div>" + (buttonsHtml(data, st) ? '<div class="mt-6" style="margin-top:24px">' + buttonsHtml(data, st) + "</div>" : "") + close;
+    if (type === "grid" || type === "cards" || type === "gridx") {
+      return renderCardGrid(type, data, st, open, close);
     }
 
     if (type === "cta" || type === "banner") {
